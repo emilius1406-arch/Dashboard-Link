@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#bf1726"/>
+  <text x="76" y="278" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="122" font-weight="900">LINK</text>
+  <path d="M238 340h110l-55 62z" fill="#f2c04f"/>
+  <path d="M92 136h328v34H92z" fill="#ffffff" opacity=".22"/>
+  <path d="M92 374h120v18H92zM366 374h54v18h-54z" fill="#ffffff" opacity=".32"/>
+</svg>
