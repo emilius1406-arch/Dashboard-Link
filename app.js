@@ -50,7 +50,13 @@ const clients = [
   },
 ];
 
-const steckIndicators = [
+const GOOGLE_SHEET_ID = "1jXNfXBNryqHaPDHgxxxSxx3AovlYLJBi1af0q5CAd1o";
+const GOOGLE_SHEETS = {
+  indicators: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Indicadores`,
+  routes: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hojas%20de%20Ruta`,
+};
+
+let steckIndicators = [
   { date: "2026-04-07", unitsToPick: 23128, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
   { date: "2026-04-08", unitsToPick: 290, utilitarios: 3, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
   { date: "2026-04-09", unitsToPick: 1948, utilitarios: 3, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
@@ -102,6 +108,7 @@ let session = null;
 let selectedClient = null;
 let activeSteckModule = "daily";
 let routeRows = null;
+let indicatorsLoaded = false;
 
 function renderPortalLogo(size = "normal") {
   return `
@@ -722,7 +729,7 @@ function renderDeclaredValueByRoute() {
     <section class="ops-section">
       <article class="ops-card search-card">
         <div class="search-head">
-          <span class="kpi-label">VALOR DECLARADO X HR</span>
+          <span class="kpi-label">BUSCADOR DE HR</span>
           <p class="muted">Buscar hojas de ruta despachadas por rango de fechas.</p>
         </div>
         <form class="declared-form">
@@ -1057,9 +1064,214 @@ async function loadRouteRows() {
     return routeRows;
   }
 
-  const response = await fetch("data/hojas-ruta.json");
-  routeRows = await response.json();
+  try {
+    const response = await fetch(GOOGLE_SHEETS.routes, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("No se pudo leer Google Sheets");
+    }
+
+    const csv = await response.text();
+    routeRows = parseRouteRows(csv);
+  } catch (error) {
+    const response = await fetch("data/hojas-ruta.json");
+    routeRows = await response.json();
+  }
+
   return routeRows;
+}
+
+async function loadSteckIndicators() {
+  try {
+    const response = await fetch(GOOGLE_SHEETS.indicators, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("No se pudo leer Indicadores");
+    }
+
+    const csv = await response.text();
+    const rows = parseIndicatorRows(csv);
+    if (rows.length) {
+      steckIndicators = rows;
+      indicatorsLoaded = true;
+    }
+  } catch (error) {
+    indicatorsLoaded = false;
+  }
+}
+
+function parseIndicatorRows(csv) {
+  const { headers, rows } = parseCsv(csv);
+  return rows
+    .map((row) => {
+      const item = rowToObject(headers, row);
+      return {
+        date: parseSheetDate(item.Fecha),
+        client: item.Cliente || "",
+        unitsToPick: parseSheetNumber(item["Unidades A Pickear"]),
+        remitos: parseSheetNumber(item.Remitos),
+        utilitarios: parseSheetNumber(item.Utilitarios),
+        chasis: parseSheetNumber(item.Chasis),
+        containersChina: parseSheetNumber(item["Desc. Cont. China"]),
+        containersBrazil: parseSheetNumber(item["Desc. Cont. Brasil"]),
+        palletsIn: parseSheetNumber(item["Pallets In"]),
+        previousMonthPositions: parseSheetNumber(item["Posiciones Mes Ant."]),
+      };
+    })
+    .filter((row) => row.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function parseRouteRows(csv) {
+  const { headers, rows } = parseCsv(csv);
+  return rows
+    .map((row) => {
+      const item = rowToObject(headers, row);
+      return {
+        remito: normalizeRemito(item.REMITOS),
+        packages: parseSheetNumber(item["CANT. BULTOS"]),
+        code: item.CODIGO || "",
+        customer: item["RAZON SOCIAL"] || "",
+        zone: item["EXPRESO/ZONA"] || "",
+        address: item["DIRECCION DE ENTREGA"] || "",
+        district: item["PARTIDO DE ENTREGA"] || "",
+        observations: item.OBSERVACIONES || "",
+        status: item.STATUS || "",
+        driver: item.CHOFER || "",
+        dispatchDate: parseSheetDate(item.ENTREGA),
+        domain: item.DOMINIO || "",
+        route: item.HR || "",
+        declaredValue: parseSheetNumber(row[20]),
+        quantity: parseSheetNumber(item.CANTIDAD),
+        fullAddress: item["DIRECCION COMPLETA"] || "",
+        locationLs: item.UBICACION_LS || "",
+        province: item.PROVINCIA || "",
+        location: item["UBICACION C/PROVINCIA"] || "",
+      };
+    })
+    .filter((row) => row.remito || row.route || row.dispatchDate);
+}
+
+function parseCsv(csv) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const char = csv[index];
+    const next = csv[index + 1];
+
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        cell += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(cell);
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim() !== "")) {
+    rows.push(row);
+  }
+
+  return {
+    headers: rows[0] || [],
+    rows: rows.slice(1),
+  };
+}
+
+function rowToObject(headers, row) {
+  return headers.reduce((object, header, index) => {
+    object[header.trim()] = (row[index] || "").trim();
+    return object;
+  }, {});
+}
+
+function parseSheetDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
+  const [datePart] = raw.split(" ");
+  const parts = datePart.split(/[/-]/).map((part) => part.trim());
+  if (parts.length !== 3) {
+    return "";
+  }
+
+  if (parts[0].length === 4) {
+    return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+  }
+
+  return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+}
+
+function parseSheetNumber(value) {
+  let raw = String(value ?? "").trim();
+  if (!raw) {
+    return 0;
+  }
+
+  raw = raw.replace(/\s/g, "").replace(/[$]/g, "").replace(/USD/gi, "").replace(/US\$/gi, "");
+  if (raw.includes(",") && raw.includes(".")) {
+    if (raw.lastIndexOf(".") > raw.lastIndexOf(",")) {
+      raw = raw.replace(/,/g, "");
+    } else {
+      raw = raw.replace(/\./g, "").replace(",", ".");
+    }
+  } else if (raw.includes(".")) {
+    const parts = raw.split(".");
+    if (parts.length === 2 && parts[1].length === 3) {
+      raw = parts.join("");
+    }
+  } else if (raw.includes(",")) {
+    const parts = raw.split(",");
+    raw = parts.length === 2 && parts[1].length === 3 ? parts.join("") : raw.replace(",", ".");
+  }
+
+  const number = Number(raw);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeRemito(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const numeric = Number(raw.replace(",", "."));
+  if (Number.isFinite(numeric) && /e/i.test(raw)) {
+    return Math.trunc(numeric).toString();
+  }
+
+  return raw.replace(/\D/g, "") || raw;
 }
 
 function renderRouteResults(matches, container) {
@@ -1115,3 +1327,8 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
+loadSteckIndicators().then(() => {
+  if (indicatorsLoaded && session && selectedClient?.id === "steck") {
+    render();
+  }
+});
