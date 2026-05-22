@@ -681,7 +681,7 @@ function renderHeatmap() {
               <option value="remitos">Por remito</option>
               <option value="boca">Por boca de entrega</option>
               <option value="units">Cantidad de unidades</option>
-              <option value="value">Valor declarado</option>
+      <option value="value">Valor declarado USD</option>
             </select>
           </label>
           <label class="field">
@@ -825,8 +825,8 @@ function renderDeclaredRouteResults(results, container, from = "", to = "") {
         <strong>${range}</strong>
       </div>
       <div>
-        <span>Valor declarado</span>
-        <strong>$ ${formatNumber(Math.round(totals.declaredValue))}</strong>
+        <span>Valor declarado USD</span>
+        <strong>USD ${formatNumber(Math.round(totals.declaredValue))}</strong>
       </div>
       <div>
         <span>Remitos</span>
@@ -842,8 +842,8 @@ function renderDeclaredRouteResults(results, container, from = "", to = "") {
               <span>${formatDisplayDate(row.dispatchDate)} - Dominio ${row.domain}</span>
             </div>
             <div>
-              <span>Valor declarado</span>
-              <strong>$ ${formatNumber(Math.round(row.declaredValue))}</strong>
+              <span>Valor declarado USD</span>
+              <strong>USD ${formatNumber(Math.round(row.declaredValue))}</strong>
             </div>
             <div>
               <span>Remitos</span>
@@ -862,7 +862,7 @@ function renderDeclaredRouteResults(results, container, from = "", to = "") {
                 <div><span>STATUS</span>${renderStatusBadge(detail.status)}</div>
                 <div><span>CHOFER</span><strong>${detail.driver || "-"}</strong></div>
                 <div><span>DOMINIO</span><strong>${detail.domain || "-"}</strong></div>
-                <div><span>VALOR DECLARADO</span><strong>$ ${formatNumber(Math.round(Number(detail.declaredValue) || 0))}</strong></div>
+                <div><span>VALOR DECLARADO USD</span><strong>USD ${formatNumber(Math.round(Number(detail.declaredValue) || 0))}</strong></div>
                 <div><span>UBICACION C/PROVINCIA</span><strong>${detail.location || detail.province || "-"}</strong></div>
               </article>
             `).join("")}
@@ -1005,14 +1005,14 @@ function getHeatmapMetricLabel(metric) {
     remitos: "Por remito",
     boca: "Por boca de entrega",
     units: "Cantidad de unidades",
-    value: "Valor declarado",
+    value: "Valor declarado USD",
   };
   return labels[metric] || labels.remitos;
 }
 
 function formatHeatmapValue(value, metric) {
   if (metric === "value") {
-    return `$ ${formatNumber(Math.round(value || 0))}`;
+    return `USD ${formatNumber(Math.round(value || 0))}`;
   }
 
   return formatNumber(Math.round(value || 0));
