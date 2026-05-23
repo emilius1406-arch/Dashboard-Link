@@ -109,6 +109,8 @@ let selectedClient = null;
 let activeSteckModule = "daily";
 let routeRows = null;
 let indicatorsLoaded = false;
+let dailyDateFrom = "";
+let dailyDateTo = "";
 
 function renderPortalLogo(size = "normal") {
   return `
@@ -177,6 +179,16 @@ function cumulativeSeries(rows, field) {
 
 function sumRows(rows, field) {
   return rows.reduce((total, row) => total + (row[field] || 0), 0);
+}
+
+function rowsBetweenDates(rows, from, to) {
+  return rows
+    .filter((row) => row.date && row.date >= from && row.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function sumDispatched(rows) {
+  return rows.reduce((total, row) => total + (row.utilitarios || 0) + (row.chasis || 0), 0);
 }
 
 function averageRows(rows, field) {
@@ -461,33 +473,55 @@ function renderDashboard(client) {
 
 function renderSteckDashboard(client) {
   const dateIso = todayIso();
-  const todayRow = steckIndicators.find((row) => row.date === dateIso) || {};
-  const monthRows = currentMonthRows(steckIndicators, dateIso);
-  const pickSeries = cumulativeSeries(monthRows, "unitsToPick");
-  const dispatchRows = monthRows.map((row) => ({
+  let rangeFrom = dailyDateFrom || dateIso;
+  let rangeTo = dailyDateTo || dailyDateFrom || dateIso;
+  if (rangeFrom > rangeTo) {
+    [rangeFrom, rangeTo] = [rangeTo, rangeFrom];
+  }
+  const isRangeView = rangeFrom !== rangeTo;
+  const referenceDate = rangeTo;
+  const dayRow = steckIndicators.find((row) => row.date === referenceDate) || {};
+  const rangeRows = rowsBetweenDates(steckIndicators, rangeFrom, rangeTo);
+  const monthRows = currentMonthRows(steckIndicators, referenceDate);
+  const chartRows = isRangeView ? rangeRows : monthRows;
+  const kpiRow = isRangeView ? {
+    unitsToPick: sumRows(rangeRows, "unitsToPick"),
+    utilitarios: sumRows(rangeRows, "utilitarios"),
+    chasis: sumRows(rangeRows, "chasis"),
+    containersChina: sumRows(rangeRows, "containersChina"),
+    containersBrazil: sumRows(rangeRows, "containersBrazil"),
+    palletsIn: sumRows(rangeRows, "palletsIn"),
+  } : dayRow;
+  const pickSeries = cumulativeSeries(chartRows, "unitsToPick");
+  const dispatchRows = chartRows.map((row) => ({
     ...row,
     dispatched: (row.utilitarios || 0) + (row.chasis || 0),
   }));
   const dispatchSeries = cumulativeSeries(dispatchRows, "dispatched");
-  const monthContainers = monthRows.reduce((total, row) => total + (row.containersChina || 0) + (row.containersBrazil || 0), 0);
-  const todayChina = todayRow.containersChina || 0;
-  const todayBrazil = todayRow.containersBrazil || 0;
-  const todayPallets = todayRow.palletsIn || 0;
-  const monthPallets = sumRows(monthRows, "palletsIn");
-  const previousRows = steckIndicators.filter((row) => row.date.slice(0, 7) === previousMonthKey(dateIso));
+  const totalRows = isRangeView ? rangeRows : monthRows;
+  const totalContainers = totalRows.reduce((total, row) => total + (row.containersChina || 0) + (row.containersBrazil || 0), 0);
+  const todayChina = kpiRow.containersChina || 0;
+  const todayBrazil = kpiRow.containersBrazil || 0;
+  const todayPallets = kpiRow.palletsIn || 0;
+  const totalPallets = sumRows(totalRows, "palletsIn");
+  const previousRows = steckIndicators.filter((row) => row.date.slice(0, 7) === previousMonthKey(referenceDate));
   const previousMonthPositions = averageRows(previousRows, "previousMonthPositions");
+  const periodLabel = isRangeView ? "EN EL RANGO" : referenceDate === dateIso ? "HOY" : `DEL ${formatDisplayDate(referenceDate)}`;
+  const detailPeriodLabel = isRangeView ? "en el rango" : referenceDate === dateIso ? "hoy" : `del ${formatDisplayDate(referenceDate)}`;
+  const accumulatedLabel = isRangeView ? "acumulados en el rango" : "acumulados en el mes";
+  const chartPeriodLabel = isRangeView ? "del rango" : "mensual";
 
   app.innerHTML = `
     ${renderTopbar(`${session.role} - ${client.name}`)}
     <section class="page steck-page">
       <div class="section-title">
         <div class="client-head">
-          ${renderClientLogo(client)}
-          <div>
-            <h2>${client.name}</h2>
-            <p class="muted">${client.sites} - operacion del dia ${dateIso.split("-").reverse().join("/")}</p>
+            ${renderClientLogo(client)}
+            <div>
+              <h2>${client.name}</h2>
+            <p class="muted">${client.sites} - ${isRangeView ? `operacion del ${formatDisplayDate(rangeFrom)} al ${formatDisplayDate(rangeTo)}` : `operacion del dia ${formatDisplayDate(referenceDate)}`}</p>
+            </div>
           </div>
-        </div>
         <div class="status-row">
           <span class="status-pill">Datos desde Google Sheets</span>
         </div>
@@ -497,36 +531,57 @@ function renderSteckDashboard(client) {
 
       ${activeSteckModule === "remitos" ? renderRemitoSearch() : activeSteckModule === "heatmap" ? renderHeatmap() : activeSteckModule === "declaredValue" ? renderDeclaredValueByRoute() : `
       <section class="ops-section">
+        <article class="ops-card daily-filter-card">
+          <div class="search-head">
+            <span class="kpi-label">INDICADORES DIARIOS</span>
+            <p class="muted">Por defecto muestra el dia corriente. Tambien podes consultar un rango.</p>
+          </div>
+          <form class="heatmap-filters">
+            <label class="field">
+              <span>Desde</span>
+              <input id="dailyDateFrom" type="date" value="${rangeFrom}">
+            </label>
+            <label class="field">
+              <span>Hasta</span>
+              <input id="dailyDateTo" type="date" value="${rangeTo}">
+            </label>
+            <button class="primary-btn" id="applyDailyIndicators" type="button">Aplicar</button>
+            <button class="ghost-btn" id="resetDailyIndicators" type="button">Hoy</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="ops-section">
         <article class="ops-card hero-kpi">
-          <span class="kpi-label">UNIDADES A PICKEAR HOY</span>
-          <strong>${formatNumber(todayRow.unitsToPick)}</strong>
-          ${renderLineChart(pickSeries, "Acumulado mensual de unidades a pickear")}
+          <span class="kpi-label">UNIDADES A PICKEAR ${periodLabel}</span>
+          <strong>${formatNumber(kpiRow.unitsToPick)}</strong>
+          ${renderLineChart(pickSeries, `Acumulado ${chartPeriodLabel} de unidades a pickear`)}
         </article>
       </section>
 
       <section class="ops-section">
         <article class="ops-card">
           <div class="ops-card-head">
-            <span class="kpi-label">UNIDADES DESPACHADAS HOY</span>
-            <strong>${formatNumber((todayRow.utilitarios || 0) + (todayRow.chasis || 0))}</strong>
+            <span class="kpi-label">UNIDADES DESPACHADAS ${periodLabel}</span>
+            <strong>${formatNumber(sumDispatched([kpiRow]))}</strong>
           </div>
           <div class="vehicle-row">
             <div class="vehicle-item">
               <img class="vehicle-photo" src="assets/utilitario-link.png" alt="Utilitario Link">
               <div>
-                <strong>${formatNumber(todayRow.utilitarios)}</strong>
+                <strong>${formatNumber(kpiRow.utilitarios)}</strong>
                 <span>Utilitarios</span>
               </div>
             </div>
             <div class="vehicle-item">
               <img class="vehicle-photo" src="assets/chasis-link.png" alt="Chasis Link">
               <div>
-                <strong>${formatNumber(todayRow.chasis)}</strong>
+                <strong>${formatNumber(kpiRow.chasis)}</strong>
                 <span>Chasis</span>
               </div>
             </div>
           </div>
-          ${renderLineChart(dispatchSeries, "Acumulado mensual de unidades despachadas")}
+          ${renderLineChart(dispatchSeries, `Acumulado ${chartPeriodLabel} de unidades despachadas`)}
         </article>
       </section>
 
@@ -536,22 +591,22 @@ function renderSteckDashboard(client) {
             <span class="kpi-label">IMPORTACIONES</span>
           </div>
           <div class="imports-total">
-            <strong>${formatNumber(monthContainers)}</strong>
-            <span>Contenedores acumulados en el mes</span>
+            <strong>${formatNumber(totalContainers)}</strong>
+            <span>Contenedores ${accumulatedLabel}</span>
           </div>
           <div class="import-grid">
             <div class="import-item">
               <img class="container-photo" src="assets/container-china-steck.png" alt="Contenedor Steck China">
               <div>
                 <strong>${formatNumber(todayChina)}</strong>
-                <span>Contenedores de China hoy</span>
+                <span>Contenedores de China ${detailPeriodLabel}</span>
               </div>
             </div>
             <div class="import-item">
               <img class="container-photo" src="assets/container-brasil-steck.png" alt="Contenedor Steck Brasil">
               <div>
                 <strong>${formatNumber(todayBrazil)}</strong>
-                <span>Contenedores de Brasil hoy</span>
+                <span>Contenedores de Brasil ${detailPeriodLabel}</span>
               </div>
             </div>
           </div>
@@ -568,15 +623,15 @@ function renderSteckDashboard(client) {
               <img class="pallets-photo" src="assets/operario-pallet-in.png" alt="Operario Link ingresando pallet Steck">
               <div>
                 <strong>${formatNumber(todayPallets)}</strong>
-                <span>Pallets hoy</span>
+                <span>Pallets ${detailPeriodLabel}</span>
               </div>
             </div>
             <div class="pallets-metrics">
               <div class="pallets-month">
                 <img class="pallets-photo" src="assets/acumulado-pallets-in.png" alt="Pallets Steck acumulados">
                 <div>
-                  <strong>${formatNumber(monthPallets)}</strong>
-                  <span>Pallets acumulados en el mes</span>
+                  <strong>${formatNumber(totalPallets)}</strong>
+                  <span>Pallets ${accumulatedLabel}</span>
                 </div>
               </div>
             </div>
@@ -607,6 +662,7 @@ function renderSteckDashboard(client) {
 
   bindTopbar();
   bindModuleNav();
+  bindDailyIndicators();
   bindRemitoSearch();
   bindAmbaHeatmap();
   bindDeclaredValueByRoute();
@@ -635,6 +691,25 @@ function bindModuleNav() {
       activeSteckModule = button.dataset.module;
       render();
     });
+  });
+}
+
+function bindDailyIndicators() {
+  const applyButton = document.querySelector("#applyDailyIndicators");
+  if (!applyButton) {
+    return;
+  }
+
+  applyButton.addEventListener("click", () => {
+    dailyDateFrom = document.querySelector("#dailyDateFrom").value || todayIso();
+    dailyDateTo = document.querySelector("#dailyDateTo").value || dailyDateFrom;
+    render();
+  });
+
+  document.querySelector("#resetDailyIndicators").addEventListener("click", () => {
+    dailyDateFrom = "";
+    dailyDateTo = "";
+    render();
   });
 }
 
