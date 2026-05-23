@@ -343,18 +343,17 @@ button {
 }
 
 .client-logo-steck {
-  width: 96px;
-  color: #e30613;
-  background: #fff;
-  border: 2px solid #e30613;
-  font-size: 20px;
-  letter-spacing: 0;
+  width: 132px;
+  height: 54px;
+  background: #e30613;
+  border: 0;
+  padding: 7px 12px;
 }
 
-.client-logo-steck span {
-  color: #e30613;
-  font-weight: 900;
-  line-height: 1;
+.client-logo-steck img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .client-card h3,

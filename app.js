@@ -133,7 +133,7 @@ function renderClientLogo(client) {
   if (client.id === "steck") {
     return `
       <div class="client-logo client-logo-steck" aria-label="Steck">
-        <span>STECK</span>
+        <img src="assets/logo-steck.png" alt="Steck">
       </div>
     `;
   }
