@@ -925,7 +925,7 @@ function countHeatmap(rows, options) {
   rows
     .filter((row) => row.dispatchDate && (!from || row.dispatchDate >= from) && (!to || row.dispatchDate <= to) && (!row.status || row.status.toUpperCase().includes("ENTREGADO")))
     .forEach((row) => {
-      const group = scope === "pais" ? normalizeDistrictName(row.province || "Sin provincia") : normalizeDistrictName(row.district || "Sin partido");
+      const group = scope === "pais" ? getProvinceLabel(row) : normalizeDistrictName(row.district || "Sin partido");
       let value = 1;
 
       if (metric === "boca") {
@@ -954,11 +954,33 @@ function countHeatmap(rows, options) {
 
 function normalizeDistrictName(value) {
   return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .split(" ")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function getProvinceLabel(row) {
+  const province = String(row.province || "").trim();
+  const invalidProvinces = ["#N/A", "N/A", "-", "SIN PROVINCIA"];
+  if (province && !invalidProvinces.includes(province.toUpperCase())) {
+    return normalizeDistrictName(province);
+  }
+
+  const location = String(row.location || "");
+  const match = location.match(/Provincia de\s+([^,]+)/i);
+  if (match?.[1]) {
+    return normalizeDistrictName(match[1]);
+  }
+
+  if (/Ciudad Aut/i.test(location)) {
+    return "Ciudad Autonoma De Buenos Aires";
+  }
+
+  return "Sin provincia";
 }
 
 function renderHeatmapResults(counts, container, options) {
@@ -973,7 +995,7 @@ function renderHeatmapResults(counts, container, options) {
   }
 
   const max = Math.max(...counts.map((item) => item.count));
-  const topDistricts = counts.slice(0, 20);
+  const heatmapGroups = scope === "pais" ? counts : counts.slice(0, 20);
   const rangeText = from || to ? `${from ? formatDisplayDate(from) : "inicio"} - ${to ? formatDisplayDate(to) : "hoy"}` : "Todos los despachos";
   const groupLabel = scope === "pais" ? "provincias" : "partidos";
   const metricLabel = getHeatmapMetricLabel(metric);
@@ -982,7 +1004,7 @@ function renderHeatmapResults(counts, container, options) {
   container.innerHTML = `
     <div class="heatmap-range">${rangeText} - ${scope === "pais" ? "Pais" : "AMBA"} - ${metricLabel}</div>
     <div class="heatmap-grid" aria-label="Mapa de calor por ${groupLabel}">
-      ${topDistricts.map((item) => {
+      ${heatmapGroups.map((item) => {
         const level = Math.max(1, Math.ceil((item.count / max) * 5));
         return `
           <div class="heat-tile heat-${level}">
