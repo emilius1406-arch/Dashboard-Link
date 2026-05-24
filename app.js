@@ -101,6 +101,13 @@ const users = [
     role: "Acceso cliente",
     clientIds: ["steck"],
   },
+  {
+    username: "gmarchetta",
+    password: "Steck1234",
+    name: "Gabriela Marchetta",
+    role: "Usuario Steck",
+    clientIds: ["steck"],
+  },
 ];
 
 const app = document.querySelector("#app");
@@ -271,34 +278,20 @@ function renderLogin() {
           </div>
           <label class="field">
             <span>Usuario</span>
-            <input id="username" name="username" autocomplete="username" value="admin" required>
+            <input id="username" name="username" autocomplete="username" required>
           </label>
           <label class="field">
             <span>Clave</span>
-            <input id="password" name="password" type="password" autocomplete="current-password" value="admin123" required>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
           </label>
           <button class="primary-btn" type="submit">Ingresar</button>
           <p class="error" id="loginError"></p>
-          <p class="hint">Usuarios demo: admin/admin123, supervisor/super123, cliente/cliente123.</p>
-          <div class="demo-users" aria-label="Accesos rapidos demo">
-            <button type="button" data-demo="admin">Todos</button>
-            <button type="button" data-demo="supervisor">Varios</button>
-            <button type="button" data-demo="cliente">Uno</button>
-          </div>
         </form>
       </div>
     </section>
   `;
 
   document.querySelector("#loginForm").addEventListener("submit", handleLogin);
-  document.querySelectorAll("[data-demo]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const user = users.find((item) => item.username === button.dataset.demo);
-      document.querySelector("#username").value = user.username;
-      document.querySelector("#password").value = user.password;
-      loginAs(user);
-    });
-  });
 }
 
 function handleLogin(event) {

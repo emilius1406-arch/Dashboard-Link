@@ -220,22 +220,6 @@ button {
   place-items: center;
 }
 
-.demo-users {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.demo-users button {
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-strong);
-  color: var(--ink);
-  font-weight: 700;
-}
-
 .error {
   min-height: 22px;
   margin: 4px 0 0;
@@ -1214,10 +1198,6 @@ button {
 
   .login-card {
     padding: 20px;
-  }
-
-  .demo-users {
-    grid-template-columns: 1fr;
   }
 
   .topbar {
