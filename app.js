@@ -1395,7 +1395,7 @@ function renderRouteResults(matches, container) {
         </div>
         <dl>
           <div><dt>Cliente</dt><dd>${row.customer || "-"}</dd></div>
-          <div><dt>Status</dt><dd>${row.status || "-"}</dd></div>
+          <div><dt>Status</dt><dd>${renderStatusBadge(row.status)}</dd></div>
           <div><dt>Hoja de ruta</dt><dd>${row.route || "-"}</dd></div>
           <div><dt>Dominio</dt><dd>${row.domain || "-"}</dd></div>
           <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
