@@ -56,21 +56,35 @@ button {
 .login-visual {
   position: relative;
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   align-items: flex-end;
   padding: clamp(28px, 5vw, 72px);
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(191, 23, 38, .9), rgba(191, 23, 38, .72) 46%, rgba(62, 54, 46, .2)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 900'%3E%3Cdefs%3E%3ClinearGradient id='sky' x1='0' x2='1'%3E%3Cstop stop-color='%23f9e5a5'/%3E%3Cstop offset='.55' stop-color='%23d7a649'/%3E%3Cstop offset='1' stop-color='%237b5d2a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='900' fill='url(%23sky)'/%3E%3Cpath d='M0 235h1200v238H0z' fill='%23bf1726' fill-opacity='.78'/%3E%3Cg opacity='.78'%3E%3Cpath d='M-20 890 496 0h58L216 900zM840 0h80l310 900h-160z' fill='%23fff7d8' fill-opacity='.72'/%3E%3Cpath d='M178 900 530 0h20L338 900zM1010 900 860 0h28l220 900z' fill='%234b3a20' fill-opacity='.35'/%3E%3Cpath d='M0 520h1200v26H0zM0 596h1200v18H0z' fill='%23f7d66e' fill-opacity='.6'/%3E%3C/g%3E%3C/svg%3E") center/cover;
+    linear-gradient(90deg, rgba(255, 255, 255, .96) 0%, rgba(255, 255, 255, .72) 32%, rgba(255, 255, 255, .08) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, .78) 0%, rgba(255, 255, 255, .18) 36%, rgba(44, 29, 10, .52) 100%),
+    url("assets/link-login-bg.jpg") center/cover;
+  background-position: center;
+}
+
+.login-visual-logo {
+  width: clamp(176px, 18vw, 286px);
+  height: auto;
+  align-self: flex-start;
+  display: block;
+  filter: drop-shadow(0 12px 22px rgba(255, 255, 255, .72));
 }
 
 .login-visual h1 {
+  align-self: flex-start;
   max-width: 740px;
   margin: 0;
-  color: #fff;
+  color: #ffffff;
   font-size: clamp(40px, 7vw, 86px);
   line-height: .92;
   font-weight: 800;
+  text-shadow: 0 3px 22px rgba(35, 24, 12, .42);
 }
 
 .login-panel {
@@ -108,47 +122,21 @@ button {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 6px;
   min-width: 0;
 }
 
-.link-logo-main {
-  color: var(--brand);
-  font-weight: 900;
-  line-height: .82;
-}
-
-.link-logo-sub {
-  color: var(--brand-2);
-  font-size: 10px;
-  font-weight: 900;
-  line-height: .86;
+.link-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .link-logo-login {
-  min-width: 130px;
+  width: 170px;
 }
 
-.link-logo-login .link-logo-main {
-  font-size: 44px;
-}
-
-.link-logo-topbar .link-logo-main {
-  font-size: 32px;
-}
-
-.link-logo-topbar .link-logo-sub {
-  font-size: 8px;
-}
-
-.brand-lockup .link-logo-main,
-.topbar .link-logo-main {
-  color: var(--brand);
-}
-
-.brand-lockup .link-logo-sub,
-.topbar .link-logo-sub {
-  color: var(--brand-2);
+.link-logo-topbar {
+  width: 150px;
 }
 
 .brand-lockup strong {

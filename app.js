@@ -115,8 +115,7 @@ let dailyDateTo = "";
 function renderPortalLogo(size = "normal") {
   return `
     <div class="link-logo link-logo-${size}" aria-label="Link Soluciones Logisticas">
-      <span class="link-logo-main">LINK</span>
-      <span class="link-logo-sub">SOLUCIONES<br>LOGISTICAS</span>
+      <img src="assets/logo-link.png" alt="Link Soluciones Logisticas">
     </div>
   `;
 }
@@ -258,6 +257,7 @@ function renderLogin() {
   app.innerHTML = `
     <section class="login-view">
       <div class="login-visual">
+        <img class="login-visual-logo" src="assets/logo-link.png" alt="Link Soluciones Logisticas">
         <h1>Dashboard Operativo</h1>
       </div>
       <div class="login-panel">
