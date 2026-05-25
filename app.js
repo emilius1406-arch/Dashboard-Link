@@ -122,7 +122,7 @@ let dailyDateTo = "";
 function renderPortalLogo(size = "normal") {
   return `
     <div class="link-logo link-logo-${size}" aria-label="Link Soluciones Logisticas">
-      <img src="assets/logo-link.png" alt="Link Soluciones Logisticas">
+      <img src="assets/logo-link-transparent.png" alt="Link Soluciones Logisticas">
     </div>
   `;
 }
@@ -264,7 +264,7 @@ function renderLogin() {
   app.innerHTML = `
     <section class="login-view">
       <div class="login-visual">
-        <img class="login-visual-logo" src="assets/logo-link.png" alt="Link Soluciones Logisticas">
+        <img class="login-visual-logo" src="assets/logo-link-transparent.png" alt="Link Soluciones Logisticas">
         <h1>Dashboard Operativo</h1>
       </div>
       <div class="login-panel">
@@ -511,7 +511,6 @@ function renderSteckDashboard(client) {
         <div class="client-head">
             ${renderClientLogo(client)}
             <div>
-              <h2>${client.name}</h2>
             <p class="muted">${client.sites} - ${isRangeView ? `operacion del ${formatDisplayDate(rangeFrom)} al ${formatDisplayDate(rangeTo)}` : `operacion del dia ${formatDisplayDate(referenceDate)}`}</p>
             </div>
           </div>

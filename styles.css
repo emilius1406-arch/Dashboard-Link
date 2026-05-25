@@ -315,11 +315,11 @@ button {
 }
 
 .client-logo-steck {
-  width: 132px;
-  height: 54px;
+  width: 152px;
+  height: 62px;
   background: #e30613;
   border: 0;
-  padding: 7px 12px;
+  padding: 8px 14px;
 }
 
 .client-logo-steck img {
