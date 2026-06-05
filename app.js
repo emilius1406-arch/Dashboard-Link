@@ -1501,8 +1501,8 @@ function showRemitoPdfViewer(remito, file) {
         </div>
       ` : `
         <div class="empty-state">
-          <strong>Remito conformado no conectado</strong>
-          <span>El boton ya esta preparado. Falta cargar el indice de PDFs de la carpeta para asociar este remito.</span>
+          <strong>Remito conformado no encontrado</strong>
+          <span>No encontramos este PDF en el indice publicado. Puede estar fuera de los primeros archivos que Google Drive permite listar publicamente por carpeta.</span>
         </div>
       `}
     </div>
