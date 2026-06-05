@@ -834,6 +834,13 @@ button {
   margin: 0;
 }
 
+.result-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 16px;
+}
+
 .result-card div {
   min-width: 0;
 }
@@ -849,6 +856,85 @@ button {
   color: var(--ink);
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view-remito-btn {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  color: #fff;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.view-remito-btn:hover {
+  background: #98111d;
+}
+
+.view-remito-btn:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+
+.pdf-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(34, 34, 34, .58);
+}
+
+.pdf-modal-card {
+  width: min(1100px, 100%);
+  height: min(88vh, 860px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.pdf-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pdf-modal-head strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--brand);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9f8f5;
+}
+
+.pdf-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .heatmap-card {

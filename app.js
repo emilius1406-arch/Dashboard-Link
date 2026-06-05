@@ -55,6 +55,7 @@ const GOOGLE_SHEETS = {
   indicators: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Indicadores`,
   routes: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hojas%20de%20Ruta`,
 };
+const REMITO_PDF_INDEX_URL = "data/remitos-pdfs.json";
 
 let steckIndicators = [
   { date: "2026-04-07", unitsToPick: 23128, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
@@ -115,6 +116,7 @@ let session = null;
 let selectedClient = null;
 let activeSteckModule = "daily";
 let routeRows = null;
+let remitoPdfIndex = null;
 let indicatorsLoaded = false;
 let dailyDateFrom = "";
 let dailyDateTo = "";
@@ -1385,20 +1387,139 @@ function renderRouteResults(matches, container) {
           <strong>Remito ${row.remito}</strong>
           <span>${formatDisplayDate(row.dispatchDate)}</span>
         </div>
-        <dl>
-          <div><dt>Cliente</dt><dd>${row.customer || "-"}</dd></div>
-          <div><dt>Status</dt><dd>${renderStatusBadge(row.status)}</dd></div>
-          <div><dt>Hoja de ruta</dt><dd>${row.route || "-"}</dd></div>
-          <div><dt>Dominio</dt><dd>${row.domain || "-"}</dd></div>
-          <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
-          <div><dt>Bultos</dt><dd>${row.packages || "0"}</dd></div>
-          <div><dt>Direccion</dt><dd>${row.address || "-"}</dd></div>
-          <div><dt>Partido</dt><dd>${row.district || "-"}</dd></div>
-          <div><dt>Provincia</dt><dd>${row.province || "-"}</dd></div>
-        </dl>
+        <div class="result-card-body">
+          <dl>
+            <div><dt>Cliente</dt><dd>${row.customer || "-"}</dd></div>
+            <div><dt>Status</dt><dd>${renderStatusBadge(row.status)}</dd></div>
+            <div><dt>Hoja de ruta</dt><dd>${row.route || "-"}</dd></div>
+            <div><dt>Dominio</dt><dd>${row.domain || "-"}</dd></div>
+            <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
+            <div><dt>Bultos</dt><dd>${row.packages || "0"}</dd></div>
+            <div><dt>Direccion</dt><dd>${row.address || "-"}</dd></div>
+            <div><dt>Partido</dt><dd>${row.district || "-"}</dd></div>
+            <div><dt>Provincia</dt><dd>${row.province || "-"}</dd></div>
+          </dl>
+          <div class="result-actions">
+            <button class="view-remito-btn" type="button" data-remito="${row.remito}">Ver remito</button>
+          </div>
+        </div>
       </article>
     `).join("")}
   `;
+
+  bindRemitoPdfButtons(container);
+}
+
+function bindRemitoPdfButtons(container) {
+  container.querySelectorAll("[data-remito]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const remito = button.dataset.remito;
+      button.disabled = true;
+      button.textContent = "Buscando...";
+
+      try {
+        const index = await loadRemitoPdfIndex();
+        const match = findRemitoPdf(remito, index);
+        showRemitoPdfViewer(remito, match);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Ver remito";
+      }
+    });
+  });
+}
+
+async function loadRemitoPdfIndex() {
+  if (remitoPdfIndex) {
+    return remitoPdfIndex;
+  }
+
+  try {
+    const response = await fetch(REMITO_PDF_INDEX_URL, { cache: "no-store" });
+    remitoPdfIndex = response.ok ? await response.json() : [];
+  } catch (error) {
+    remitoPdfIndex = [];
+  }
+
+  return Array.isArray(remitoPdfIndex) ? remitoPdfIndex : [];
+}
+
+function findRemitoPdf(remito, index) {
+  const full = normalizePdfDigits(remito);
+  if (!full) {
+    return null;
+  }
+
+  const candidates = index
+    .map((file) => {
+      const label = `${file.remito || ""} ${file.name || ""} ${file.fileName || ""} ${file.title || ""}`;
+      const digits = normalizePdfDigits(label);
+      let score = 0;
+
+      if (digits === full) score = 100;
+      else if (digits.includes(full)) score = 95;
+      else if (full.includes(digits) && digits.length >= 5) score = 85;
+      else if (digits.endsWith(full.slice(-7))) score = 75;
+      else if (digits.endsWith(full.slice(-6))) score = 65;
+      else if (digits.endsWith(full.slice(-5))) score = 55;
+
+      return { file, score };
+    })
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return candidates[0]?.file || null;
+}
+
+function normalizePdfDigits(value) {
+  return normalizeRemito(value).replace(/^0+/, "");
+}
+
+function showRemitoPdfViewer(remito, file) {
+  const existing = document.querySelector("#remitoPdfModal");
+  if (existing) {
+    existing.remove();
+  }
+
+  const url = file ? getPdfPreviewUrl(file.url || file.webViewLink || file.downloadUrl || file.previewUrl || "") : "";
+  const modal = document.createElement("div");
+  modal.className = "pdf-modal";
+  modal.id = "remitoPdfModal";
+  modal.innerHTML = `
+    <div class="pdf-modal-card" role="dialog" aria-modal="true" aria-label="Remito ${remito}">
+      <div class="pdf-modal-head">
+        <div>
+          <span class="kpi-label">REMITO CONFORMADO</span>
+          <strong>${remito}</strong>
+        </div>
+        <button class="icon-btn" type="button" id="closeRemitoPdf">X</button>
+      </div>
+      ${url ? `
+        <iframe class="pdf-frame" src="${url}" title="Remito ${remito}"></iframe>
+        <div class="pdf-actions">
+          <a class="view-remito-btn" href="${url}" target="_blank" rel="noopener">Abrir en otra pestaña</a>
+        </div>
+      ` : `
+        <div class="empty-state">
+          <strong>Remito conformado no conectado</strong>
+          <span>El boton ya esta preparado. Falta cargar el indice de PDFs de la carpeta para asociar este remito.</span>
+        </div>
+      `}
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  document.querySelector("#closeRemitoPdf").addEventListener("click", () => modal.remove());
+}
+
+function getPdfPreviewUrl(url) {
+  const raw = String(url || "").trim();
+  const driveFile = raw.match(/\/file\/d\/([^/]+)/) || raw.match(/[?&]id=([^&]+)/);
+  if (driveFile?.[1]) {
+    return `https://drive.google.com/file/d/${driveFile[1]}/preview`;
+  }
+
+  return raw;
 }
 
 function formatDisplayDate(dateIso) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-operativo-v44";
+const CACHE_NAME = "dashboard-operativo-v46";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -21,6 +21,7 @@ const APP_SHELL = [
   "./assets/acumulado-pallets-in.png",
   "./assets/posiciones-mes-anterior.png",
   "./data/hojas-ruta.json",
+  "./data/remitos-pdfs.json",
 ];
 
 self.addEventListener("install", (event) => {
