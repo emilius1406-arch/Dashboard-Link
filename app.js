@@ -57,6 +57,7 @@ const GOOGLE_SHEETS = {
 };
 const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZntkmT5zha-bu6CvbBpzZSsFsE-4tLJ2kxHaIjICRDhHnLsnpIP1Ipjn0S5MyA/exec";
 const REMITO_PDF_FALLBACK_URL = "data/remitos-pdfs.json";
+const UNIT_QUANTITY_INDEX_URL = "data/unidades-remito.json";
 
 let steckIndicators = [
   { date: "2026-04-07", unitsToPick: 23128, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
@@ -118,6 +119,7 @@ let selectedClient = null;
 let activeSteckModule = "daily";
 let routeRows = null;
 let remitoPdfIndex = null;
+let unitQuantityIndex = null;
 let indicatorsLoaded = false;
 let dailyDateFrom = "";
 let dailyDateTo = "";
@@ -1157,19 +1159,46 @@ async function loadRouteRows() {
   }
 
   try {
+    const quantities = await loadUnitQuantityIndex();
     const response = await fetch(GOOGLE_SHEETS.routes, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("No se pudo leer Google Sheets");
     }
 
     const csv = await response.text();
-    routeRows = parseRouteRows(csv);
+    routeRows = parseRouteRows(csv, quantities);
   } catch (error) {
+    const quantities = await loadUnitQuantityIndex();
     const response = await fetch("data/hojas-ruta.json");
-    routeRows = await response.json();
+    routeRows = (await response.json()).map((row) => ({
+      ...row,
+      quantity: quantities[normalizePdfDigits(row.remito)] || row.quantity,
+    }));
   }
 
   return routeRows;
+}
+
+async function loadUnitQuantityIndex() {
+  if (unitQuantityIndex) {
+    return unitQuantityIndex;
+  }
+
+  try {
+    const response = await fetch(UNIT_QUANTITY_INDEX_URL, { cache: "no-store" });
+    const rows = response.ok ? await response.json() : [];
+    unitQuantityIndex = rows.reduce((index, row) => {
+      const remito = normalizePdfDigits(row.remito || row.remitoOriginal);
+      if (remito) {
+        index[remito] = parseSheetNumber(row.cantidad);
+      }
+      return index;
+    }, {});
+  } catch (error) {
+    unitQuantityIndex = {};
+  }
+
+  return unitQuantityIndex;
 }
 
 async function loadSteckIndicators() {
@@ -1212,13 +1241,15 @@ function parseIndicatorRows(csv) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function parseRouteRows(csv) {
+function parseRouteRows(csv, quantityIndex = {}) {
   const { headers, rows } = parseCsv(csv);
   return rows
     .map((row) => {
       const item = rowToObject(headers, row);
+      const remito = normalizeRemito(item.REMITOS);
+      const indexedQuantity = quantityIndex[normalizePdfDigits(remito)];
       return {
-        remito: normalizeRemito(item.REMITOS),
+        remito,
         packages: parseSheetNumber(item["CANT. BULTOS"]),
         code: item.CODIGO || "",
         customer: item["RAZON SOCIAL"] || "",
@@ -1232,7 +1263,7 @@ function parseRouteRows(csv) {
         domain: item.DOMINIO || "",
         route: item.HR || "",
         declaredValue: parseSheetNumber(row[20]),
-        quantity: parseSheetNumber(item.CANTIDAD),
+        quantity: indexedQuantity || parseSheetNumber(item.CANTIDAD),
         fullAddress: item["DIRECCION COMPLETA"] || "",
         locationLs: item.UBICACION_LS || "",
         province: item.PROVINCIA || "",
