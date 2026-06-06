@@ -1423,13 +1423,14 @@ function renderRouteResults(matches, container) {
           <dl>
             <div><dt>Cliente</dt><dd>${row.customer || "-"}</dd></div>
             <div><dt>Status</dt><dd>${renderStatusBadge(row.status)}</dd></div>
-            <div><dt>Hoja de ruta</dt><dd>${row.route || "-"}</dd></div>
-            <div><dt>Dominio</dt><dd>${row.domain || "-"}</dd></div>
-            <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
-            <div><dt>Bultos</dt><dd>${row.packages || "0"}</dd></div>
-            <div><dt>Direccion</dt><dd>${row.address || "-"}</dd></div>
-            <div><dt>Partido</dt><dd>${row.district || "-"}</dd></div>
-            <div><dt>Provincia</dt><dd>${row.province || "-"}</dd></div>
+          <div><dt>Hoja de ruta</dt><dd>${row.route || "-"}</dd></div>
+          <div><dt>Dominio</dt><dd>${row.domain || "-"}</dd></div>
+          <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
+          <div><dt>Bultos</dt><dd>${row.packages || "0"}</dd></div>
+          <div><dt>Unidades</dt><dd>${formatNumber(row.quantity)}</dd></div>
+          <div><dt>Direccion</dt><dd>${row.address || "-"}</dd></div>
+          <div><dt>Partido</dt><dd>${row.district || "-"}</dd></div>
+          <div><dt>Provincia</dt><dd>${row.province || "-"}</dd></div>
           </dl>
           <div class="result-actions">
             <button class="view-remito-btn" type="button" data-remito="${row.remito}">Ver remito</button>
