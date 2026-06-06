@@ -55,7 +55,8 @@ const GOOGLE_SHEETS = {
   indicators: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Indicadores`,
   routes: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hojas%20de%20Ruta`,
 };
-const REMITO_PDF_INDEX_URL = "data/remitos-pdfs.json";
+const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZntkmT5zha-bu6CvbBpzZSsFsE-4tLJ2kxHaIjICRDhHnLsnpIP1Ipjn0S5MyA/exec";
+const REMITO_PDF_FALLBACK_URL = "data/remitos-pdfs.json";
 
 let steckIndicators = [
   { date: "2026-04-07", unitsToPick: 23128, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
@@ -1436,9 +1437,17 @@ async function loadRemitoPdfIndex() {
 
   try {
     const response = await fetch(REMITO_PDF_INDEX_URL, { cache: "no-store" });
-    remitoPdfIndex = response.ok ? await response.json() : [];
+    if (!response.ok) {
+      throw new Error("No se pudo cargar el indice completo");
+    }
+    remitoPdfIndex = await response.json();
   } catch (error) {
-    remitoPdfIndex = [];
+    try {
+      const response = await fetch(REMITO_PDF_FALLBACK_URL, { cache: "no-store" });
+      remitoPdfIndex = response.ok ? await response.json() : [];
+    } catch (fallbackError) {
+      remitoPdfIndex = [];
+    }
   }
 
   return Array.isArray(remitoPdfIndex) ? remitoPdfIndex : [];
