@@ -1428,6 +1428,7 @@ function renderRouteResults(matches, container) {
           <div><dt>Chofer</dt><dd>${row.driver || "-"}</dd></div>
           <div><dt>Bultos</dt><dd>${row.packages || "0"}</dd></div>
           <div><dt>Unidades</dt><dd>${formatNumber(row.quantity)}</dd></div>
+          <div><dt>Valor declarado USD</dt><dd>USD ${formatNumber(Math.round(Number(row.declaredValue) || 0))}</dd></div>
           <div><dt>Direccion</dt><dd>${row.address || "-"}</dd></div>
           <div><dt>Partido</dt><dd>${row.district || "-"}</dd></div>
           <div><dt>Provincia</dt><dd>${row.province || "-"}</dd></div>
