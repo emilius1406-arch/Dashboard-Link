@@ -51,9 +51,11 @@ const clients = [
 ];
 
 const GOOGLE_SHEET_ID = "1jXNfXBNryqHaPDHgxxxSxx3AovlYLJBi1af0q5CAd1o";
+const ACCESS_SHEET_ID = "11SV3n8CkGJLx1sgKZhgXCg-Si3cdUcjZYeqAmQasJVs";
 const GOOGLE_SHEETS = {
   indicators: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Indicadores`,
   routes: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hojas%20de%20Ruta`,
+  users: `https://docs.google.com/spreadsheets/d/${ACCESS_SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`,
 };
 const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZntkmT5zha-bu6CvbBpzZSsFsE-4tLJ2kxHaIjICRDhHnLsnpIP1Ipjn0S5MyA/exec";
 const REMITO_PDF_FALLBACK_URL = "data/remitos-pdfs.json";
@@ -82,17 +84,15 @@ let steckIndicators = [
   { date: "2026-05-08", unitsToPick: 3832, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
 ];
 
-const USERS_STORAGE_KEY = "dashboardOperativoUsers";
-
-const baseUsers = [
+const fallbackUsers = [
   {
     id: "admin",
     username: "admin",
-    password: "Link@since16",
-    name: "Operacion Central",
-    role: "Acceso total",
+    password: "Link@since2016",
+    name: "Emiliano Fernandez",
+    role: "Gerente de Operaciones",
     company: "Link Soluciones Logisticas",
-    position: "Administrador",
+    position: "Gerente de Operaciones",
     clientIds: clients.map((client) => client.id),
     system: true,
     isAdmin: true,
@@ -130,45 +130,32 @@ const baseUsers = [
     clientIds: ["steck"],
     system: true,
   },
+  {
+    id: "mlancelotti",
+    username: "mlancelotti",
+    password: "Since@2016",
+    name: "Marcelo Lancelotti",
+    role: "Gerente General",
+    company: "Link Soluciones Logisticas",
+    position: "Gerente General",
+    clientIds: ["steck"],
+    system: true,
+  },
 ];
 
-let users = loadUsers();
+let users = fallbackUsers.map(normalizeUserRecord);
+let usersLoadedFromSheet = false;
 
 const app = document.querySelector("#app");
 let session = null;
 let selectedClient = null;
 let activeSteckModule = "daily";
-let activeAdminView = false;
 let routeRows = null;
 let remitoPdfIndex = null;
 let unitQuantityIndex = null;
 let indicatorsLoaded = false;
 let dailyDateFrom = "";
 let dailyDateTo = "";
-
-function loadUsers() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]");
-    const savedById = new Map(saved.map((user) => [String(user.id || user.username), user]));
-    const savedByUsername = new Map(saved.map((user) => [normalizeUsername(user.username), user]));
-    return baseUsers.map((user) => ({
-      ...user,
-      ...(savedById.get(user.id) || savedByUsername.get(user.username) || {}),
-      id: user.id,
-      system: true,
-      isAdmin: Boolean(user.isAdmin),
-    })).concat(saved.filter((user) => {
-      const savedId = String(user.id || user.username);
-      return !baseUsers.some((baseUser) => baseUser.id === savedId || baseUser.username === normalizeUsername(user.username));
-    }).map(normalizeUserRecord));
-  } catch (error) {
-    return baseUsers.map((user) => ({ ...user }));
-  }
-}
-
-function saveUsers() {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users.map(normalizeUserRecord)));
-}
 
 function normalizeUsername(username) {
   return String(username || "").trim().toLowerCase();
@@ -200,6 +187,84 @@ function createUserId() {
 
 function isAdminSession() {
   return session && session.isAdmin;
+}
+
+async function loadUsersFromSheet() {
+  try {
+    const response = await fetch(GOOGLE_SHEETS.users, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("No se pudo leer la configuracion de usuarios");
+    }
+
+    const csv = await response.text();
+    const parsedUsers = parseUserRows(csv);
+    if (parsedUsers.length) {
+      users = parsedUsers;
+      usersLoadedFromSheet = true;
+      syncActiveSessionUser();
+    }
+  } catch (error) {
+    usersLoadedFromSheet = false;
+  }
+}
+
+function parseUserRows(csv) {
+  const { headers, rows } = parseCsv(csv);
+  return rows
+    .map((row) => {
+      const item = rowToObject(headers, row);
+      const username = normalizeUsername(item.Usuario);
+      const clientIds = clients
+        .filter((client) => isYesValue(item[client.name]))
+        .map((client) => client.id);
+
+      return normalizeUserRecord({
+        id: username,
+        username,
+        password: item["Contraseña"],
+        name: item["Nombre Visible"],
+        role: item.Cargo,
+        company: item.Empresa,
+        position: item.Cargo,
+        clientIds,
+        system: true,
+        isAdmin: username === "admin",
+      });
+    })
+    .filter((user) => user.username && user.password && user.clientIds.length);
+}
+
+function isYesValue(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") === "si";
+}
+
+function syncActiveSessionUser() {
+  if (!session) {
+    return;
+  }
+
+  const updated = users.find((user) => user.id === session.id || user.username === session.username);
+  if (!updated) {
+    logout();
+    return;
+  }
+
+  session = updated;
+  if (selectedClient && !session.clientIds.includes(selectedClient.id)) {
+    selectedClient = null;
+  }
+}
+
+async function refreshUsersFromSheet() {
+  const previousSession = session;
+  await loadUsersFromSheet();
+  if (previousSession && session) {
+    render();
+  }
 }
 
 function escapeHtml(value) {
@@ -334,12 +399,6 @@ function render() {
     return;
   }
 
-  if (activeAdminView && isAdminSession()) {
-    renderUserConfiguration();
-    resetScroll();
-    return;
-  }
-
   if (allowedClients().length === 1) {
     selectedClient = allowedClients()[0];
   }
@@ -392,15 +451,23 @@ function renderLogin() {
   document.querySelector("#loginForm").addEventListener("submit", handleLogin);
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
+  const error = document.querySelector("#loginError");
+  const submitButton = event.currentTarget.querySelector("button[type='submit']");
   const form = new FormData(event.currentTarget);
   const username = String(form.get("username")).trim().toLowerCase();
   const password = String(form.get("password"));
+
+  error.textContent = "Validando accesos...";
+  submitButton.disabled = true;
+  await loadUsersFromSheet();
+  submitButton.disabled = false;
+
   const user = users.find((item) => item.username === username && item.password === password);
 
   if (!user) {
-    document.querySelector("#loginError").textContent = "Usuario o clave incorrectos.";
+    error.textContent = usersLoadedFromSheet ? "Usuario o clave incorrectos." : "Usuario o clave incorrectos. No se pudo actualizar la planilla de accesos.";
     return;
   }
 
@@ -411,7 +478,6 @@ function loginAs(user) {
   session = user;
   selectedClient = null;
   activeSteckModule = "daily";
-  activeAdminView = false;
   render();
 }
 
@@ -419,7 +485,6 @@ function logout() {
   session = null;
   selectedClient = null;
   activeSteckModule = "daily";
-  activeAdminView = false;
   render();
 }
 
@@ -435,7 +500,6 @@ function renderTopbar(subtitle) {
         </div>
       </div>
       <div class="topbar-actions">
-        ${isAdminSession() ? `<button class="ghost-btn" type="button" id="userConfig">Configuracion de usuarios</button>` : ""}
         ${canSwitch ? `<button class="ghost-btn" type="button" id="switchClient">Cambiar cliente</button>` : ""}
         <button class="icon-btn" type="button" id="logout" aria-label="Cerrar sesion" title="Cerrar sesion">X</button>
       </div>
@@ -449,15 +513,6 @@ function bindTopbar() {
   if (switchButton) {
     switchButton.addEventListener("click", () => {
       selectedClient = null;
-      activeAdminView = false;
-      render();
-    });
-  }
-  const userConfigButton = document.querySelector("#userConfig");
-  if (userConfigButton) {
-    userConfigButton.addEventListener("click", () => {
-      selectedClient = null;
-      activeAdminView = true;
       render();
     });
   }
@@ -499,220 +554,6 @@ function renderClientSelector() {
   document.querySelectorAll("[data-client]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedClient = clientById(button.dataset.client);
-      render();
-    });
-  });
-}
-
-function renderUserConfiguration() {
-  app.innerHTML = `
-    ${renderTopbar("Administrador - configuracion de usuarios")}
-    <section class="page">
-      <div class="section-title">
-        <div>
-          <h2>Configuracion de usuarios</h2>
-          <p class="muted">Alta, baja y cambios de acceso para los usuarios del portal.</p>
-        </div>
-      </div>
-
-      <div class="admin-users-layout">
-        <article class="ops-card user-form-card">
-          <div class="search-head">
-            <span class="kpi-label">NUEVO USUARIO</span>
-          </div>
-          <form id="createUserForm" class="user-form">
-            <div class="user-form-grid">
-              <label class="field">
-                <span>Nombre visible</span>
-                <input name="name" required>
-              </label>
-              <label class="field">
-                <span>Usuario</span>
-                <input name="username" autocomplete="off" required>
-              </label>
-              <label class="field">
-                <span>Clave</span>
-                <input name="password" type="password" autocomplete="new-password" required>
-              </label>
-              <label class="field">
-                <span>Compania</span>
-                <input name="company" placeholder="Ej: Steck" required>
-              </label>
-              <label class="field">
-                <span>Posicion</span>
-                <input name="position" placeholder="Ej: Responsable operativo" required>
-              </label>
-              <label class="field">
-                <span>Rol</span>
-                <input name="role" placeholder="Ej: Usuario Steck" required>
-              </label>
-            </div>
-            <fieldset class="access-fieldset">
-              <legend>Clientes habilitados</legend>
-              ${clients.map((client) => `
-                <label>
-                  <input type="checkbox" name="clientIds" value="${client.id}" ${client.id === "steck" ? "checked" : ""}>
-                  <span>${escapeHtml(client.name)}</span>
-                </label>
-              `).join("")}
-            </fieldset>
-            <button class="primary-btn" type="submit">Dar de alta</button>
-            <p class="error" id="userConfigError"></p>
-          </form>
-        </article>
-
-        <article class="ops-card user-list-card">
-          <div class="search-head">
-            <span class="kpi-label">USUARIOS ACTIVOS</span>
-          </div>
-          <div class="user-list">
-            ${users.map(renderUserAdminRow).join("")}
-          </div>
-        </article>
-      </div>
-    </section>
-  `;
-
-  bindTopbar();
-  bindUserConfiguration();
-}
-
-function renderUserAdminRow(user) {
-  const clientList = user.clientIds.map((id) => clientById(id)?.name).filter(Boolean).join(", ") || "Sin clientes";
-  const isProtectedAdmin = user.isAdmin;
-  return `
-    <form class="user-admin-row" data-user-id="${escapeHtml(user.id)}">
-      <div class="user-admin-head">
-        <strong>${escapeHtml(user.name)}</strong>
-        <span>${escapeHtml(user.username)} - ${escapeHtml(user.company || "Sin compania")} - ${escapeHtml(user.position || "Sin posicion")} - ${escapeHtml(clientList)}</span>
-      </div>
-      <div class="user-admin-grid">
-        <label class="field">
-          <span>Nombre visible</span>
-          <input name="name" value="${escapeHtml(user.name)}" required>
-        </label>
-        <label class="field">
-          <span>Usuario</span>
-          <input name="username" value="${escapeHtml(user.username)}" required>
-        </label>
-        <label class="field">
-          <span>Clave</span>
-          <input name="password" type="text" value="${escapeHtml(user.password)}" required>
-        </label>
-        <label class="field">
-          <span>Compania</span>
-          <input name="company" value="${escapeHtml(user.company)}" required>
-        </label>
-        <label class="field">
-          <span>Posicion</span>
-          <input name="position" value="${escapeHtml(user.position)}" required>
-        </label>
-        <label class="field">
-          <span>Rol</span>
-          <input name="role" value="${escapeHtml(user.role)}" required>
-        </label>
-      </div>
-      <fieldset class="access-fieldset compact">
-        <legend>Clientes habilitados</legend>
-        ${clients.map((client) => `
-          <label>
-            <input type="checkbox" name="clientIds" value="${client.id}" ${user.clientIds.includes(client.id) ? "checked" : ""}>
-            <span>${escapeHtml(client.name)}</span>
-          </label>
-        `).join("")}
-      </fieldset>
-      <div class="user-admin-actions">
-        <button class="secondary-btn" type="submit">Guardar cambios</button>
-        ${isProtectedAdmin ? "" : `<button class="danger-btn" type="button" data-delete-user="${escapeHtml(user.id)}">Dar de baja</button>`}
-      </div>
-    </form>
-  `;
-}
-
-function bindUserConfiguration() {
-  const createForm = document.querySelector("#createUserForm");
-  const error = document.querySelector("#userConfigError");
-  createForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const form = new FormData(createForm);
-    const username = normalizeUsername(form.get("username"));
-    const clientIds = form.getAll("clientIds");
-
-    if (!username) {
-      error.textContent = "Ingresa un usuario valido.";
-      return;
-    }
-
-    if (!clientIds.length) {
-      error.textContent = "Selecciona al menos un cliente habilitado.";
-      return;
-    }
-
-    if (users.some((user) => user.username === username)) {
-      error.textContent = "Ese usuario ya existe.";
-      return;
-    }
-
-    users.push(normalizeUserRecord({
-      id: username,
-      username,
-      password: form.get("password"),
-      name: form.get("name"),
-      role: form.get("role"),
-      company: form.get("company"),
-      position: form.get("position"),
-      clientIds,
-    }));
-    saveUsers();
-    render();
-  });
-
-  document.querySelectorAll(".user-admin-row").forEach((formElement) => {
-    formElement.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const userId = formElement.dataset.userId;
-      const form = new FormData(formElement);
-      const username = normalizeUsername(form.get("username"));
-      const clientIds = form.getAll("clientIds");
-
-      if (!username) {
-        alert("Ingresa un usuario valido.");
-        return;
-      }
-
-      if (users.some((user) => user.id !== userId && user.username === username)) {
-        alert("Ese usuario ya existe.");
-        return;
-      }
-
-      if (!clientIds.length) {
-        alert("Selecciona al menos un cliente habilitado.");
-        return;
-      }
-
-      users = users.map((user) => user.id === userId ? normalizeUserRecord({
-        ...user,
-        username,
-        name: form.get("name"),
-        password: form.get("password"),
-        role: form.get("role"),
-        company: form.get("company"),
-        position: form.get("position"),
-        clientIds,
-      }) : user);
-      saveUsers();
-      if (session.id === userId) {
-        session = users.find((user) => user.id === userId);
-      }
-      render();
-    });
-  });
-
-  document.querySelectorAll("[data-delete-user]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const userId = button.dataset.deleteUser;
-      users = users.filter((user) => user.id !== userId);
-      saveUsers();
       render();
     });
   });
@@ -1898,8 +1739,14 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
+loadUsersFromSheet().then(() => {
+  if (!session) {
+    render();
+  }
+});
 loadSteckIndicators().then(() => {
   if (indicatorsLoaded && session && selectedClient?.id === "steck") {
     render();
   }
 });
+setInterval(refreshUsersFromSheet, 60000);

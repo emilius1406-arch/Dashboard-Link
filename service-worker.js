@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-operativo-v53";
+const CACHE_NAME = "dashboard-operativo-v56";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -902,102 +902,6 @@ button {
   background: #98111d;
 }
 
-.admin-users-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
-  gap: 14px;
-}
-
-.user-form,
-.user-list,
-.user-admin-row {
-  display: grid;
-  gap: 14px;
-}
-
-.user-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.user-form-grid .field {
-  margin-bottom: 0;
-}
-
-.access-fieldset {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 0;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9f8f5;
-}
-
-.access-fieldset legend {
-  padding: 0 6px;
-  color: var(--muted);
-  font-weight: 900;
-}
-
-.access-fieldset label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  font-weight: 800;
-}
-
-.access-fieldset input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--brand);
-}
-
-.user-admin-row {
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.user-admin-head {
-  display: grid;
-  gap: 4px;
-}
-
-.user-admin-head strong {
-  font-size: 20px;
-}
-
-.user-admin-head span {
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.user-admin-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.user-admin-grid .field {
-  margin-bottom: 0;
-}
-
-.user-admin-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
 .view-remito-btn:disabled {
   cursor: wait;
   opacity: .72;
@@ -1379,9 +1283,6 @@ button {
   .route-detail,
   .heatmap-filters,
   .heatmap-grid,
-  .admin-users-layout,
-  .user-form-grid,
-  .user-admin-grid,
   .result-card dl,
   .vehicle-row,
   .import-grid,
