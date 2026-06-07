@@ -915,6 +915,16 @@ button {
   gap: 14px;
 }
 
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.user-form-grid .field {
+  margin-bottom: 0;
+}
+
 .access-fieldset {
   display: flex;
   flex-wrap: wrap;
@@ -1370,6 +1380,7 @@ button {
   .heatmap-filters,
   .heatmap-grid,
   .admin-users-layout,
+  .user-form-grid,
   .user-admin-grid,
   .result-card dl,
   .vehicle-row,

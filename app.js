@@ -86,34 +86,47 @@ const USERS_STORAGE_KEY = "dashboardOperativoUsers";
 
 const baseUsers = [
   {
+    id: "admin",
     username: "admin",
     password: "Link@since16",
     name: "Operacion Central",
     role: "Acceso total",
+    company: "Link Soluciones Logisticas",
+    position: "Administrador",
     clientIds: clients.map((client) => client.id),
     system: true,
+    isAdmin: true,
   },
   {
+    id: "supervisor",
     username: "supervisor",
     password: "super123",
     name: "Supervisor Regional",
     role: "Acceso a cartera",
+    company: "Link Soluciones Logisticas",
+    position: "Supervisor",
     clientIds: ["steck", "norte", "andes"],
     system: true,
   },
   {
+    id: "cliente",
     username: "cliente",
     password: "cliente123",
     name: "Usuario Steck",
     role: "Acceso cliente",
+    company: "Steck",
+    position: "Cliente",
     clientIds: ["steck"],
     system: true,
   },
   {
+    id: "gmarchetta",
     username: "gmarchetta",
     password: "Steck1234",
     name: "Gabriela Marchetta",
     role: "Usuario Steck",
+    company: "Steck",
+    position: "Usuario",
     clientIds: ["steck"],
     system: true,
   },
@@ -136,13 +149,18 @@ let dailyDateTo = "";
 function loadUsers() {
   try {
     const saved = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]");
+    const savedById = new Map(saved.map((user) => [String(user.id || user.username), user]));
     const savedByUsername = new Map(saved.map((user) => [normalizeUsername(user.username), user]));
     return baseUsers.map((user) => ({
       ...user,
-      ...(savedByUsername.get(user.username) || {}),
-      username: user.username,
+      ...(savedById.get(user.id) || savedByUsername.get(user.username) || {}),
+      id: user.id,
       system: true,
-    })).concat(saved.filter((user) => !baseUsers.some((baseUser) => baseUser.username === normalizeUsername(user.username))).map(normalizeUserRecord));
+      isAdmin: Boolean(user.isAdmin),
+    })).concat(saved.filter((user) => {
+      const savedId = String(user.id || user.username);
+      return !baseUsers.some((baseUser) => baseUser.id === savedId || baseUser.username === normalizeUsername(user.username));
+    }).map(normalizeUserRecord));
   } catch (error) {
     return baseUsers.map((user) => ({ ...user }));
   }
@@ -157,18 +175,31 @@ function normalizeUsername(username) {
 }
 
 function normalizeUserRecord(user) {
+  const username = normalizeUsername(user.username);
   return {
-    username: normalizeUsername(user.username),
+    id: String(user.id || username || createUserId()),
+    username,
     password: String(user.password || ""),
     name: String(user.name || ""),
     role: String(user.role || ""),
+    company: String(user.company || ""),
+    position: String(user.position || ""),
     clientIds: Array.isArray(user.clientIds) ? user.clientIds.filter((id) => clients.some((client) => client.id === id)) : [],
     system: Boolean(user.system),
+    isAdmin: Boolean(user.isAdmin),
   };
 }
 
+function createUserId() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  return `user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function isAdminSession() {
-  return session && session.username === "admin";
+  return session && session.isAdmin;
 }
 
 function escapeHtml(value) {
@@ -490,22 +521,32 @@ function renderUserConfiguration() {
             <span class="kpi-label">NUEVO USUARIO</span>
           </div>
           <form id="createUserForm" class="user-form">
-            <label class="field">
-              <span>Nombre visible</span>
-              <input name="name" required>
-            </label>
-            <label class="field">
-              <span>Usuario</span>
-              <input name="username" autocomplete="off" required>
-            </label>
-            <label class="field">
-              <span>Clave</span>
-              <input name="password" type="password" autocomplete="new-password" required>
-            </label>
-            <label class="field">
-              <span>Rol</span>
-              <input name="role" placeholder="Ej: Usuario Steck" required>
-            </label>
+            <div class="user-form-grid">
+              <label class="field">
+                <span>Nombre visible</span>
+                <input name="name" required>
+              </label>
+              <label class="field">
+                <span>Usuario</span>
+                <input name="username" autocomplete="off" required>
+              </label>
+              <label class="field">
+                <span>Clave</span>
+                <input name="password" type="password" autocomplete="new-password" required>
+              </label>
+              <label class="field">
+                <span>Compania</span>
+                <input name="company" placeholder="Ej: Steck" required>
+              </label>
+              <label class="field">
+                <span>Posicion</span>
+                <input name="position" placeholder="Ej: Responsable operativo" required>
+              </label>
+              <label class="field">
+                <span>Rol</span>
+                <input name="role" placeholder="Ej: Usuario Steck" required>
+              </label>
+            </div>
             <fieldset class="access-fieldset">
               <legend>Clientes habilitados</legend>
               ${clients.map((client) => `
@@ -538,12 +579,12 @@ function renderUserConfiguration() {
 
 function renderUserAdminRow(user) {
   const clientList = user.clientIds.map((id) => clientById(id)?.name).filter(Boolean).join(", ") || "Sin clientes";
-  const isProtectedAdmin = user.username === "admin";
+  const isProtectedAdmin = user.isAdmin;
   return `
-    <form class="user-admin-row" data-user="${escapeHtml(user.username)}">
+    <form class="user-admin-row" data-user-id="${escapeHtml(user.id)}">
       <div class="user-admin-head">
         <strong>${escapeHtml(user.name)}</strong>
-        <span>${escapeHtml(user.username)} - ${escapeHtml(clientList)}</span>
+        <span>${escapeHtml(user.username)} - ${escapeHtml(user.company || "Sin compania")} - ${escapeHtml(user.position || "Sin posicion")} - ${escapeHtml(clientList)}</span>
       </div>
       <div class="user-admin-grid">
         <label class="field">
@@ -551,8 +592,20 @@ function renderUserAdminRow(user) {
           <input name="name" value="${escapeHtml(user.name)}" required>
         </label>
         <label class="field">
+          <span>Usuario</span>
+          <input name="username" value="${escapeHtml(user.username)}" required>
+        </label>
+        <label class="field">
           <span>Clave</span>
           <input name="password" type="text" value="${escapeHtml(user.password)}" required>
+        </label>
+        <label class="field">
+          <span>Compania</span>
+          <input name="company" value="${escapeHtml(user.company)}" required>
+        </label>
+        <label class="field">
+          <span>Posicion</span>
+          <input name="position" value="${escapeHtml(user.position)}" required>
         </label>
         <label class="field">
           <span>Rol</span>
@@ -570,7 +623,7 @@ function renderUserAdminRow(user) {
       </fieldset>
       <div class="user-admin-actions">
         <button class="secondary-btn" type="submit">Guardar cambios</button>
-        ${isProtectedAdmin ? "" : `<button class="danger-btn" type="button" data-delete-user="${escapeHtml(user.username)}">Dar de baja</button>`}
+        ${isProtectedAdmin ? "" : `<button class="danger-btn" type="button" data-delete-user="${escapeHtml(user.id)}">Dar de baja</button>`}
       </div>
     </form>
   `;
@@ -601,10 +654,13 @@ function bindUserConfiguration() {
     }
 
     users.push(normalizeUserRecord({
+      id: username,
       username,
       password: form.get("password"),
       name: form.get("name"),
       role: form.get("role"),
+      company: form.get("company"),
+      position: form.get("position"),
       clientIds,
     }));
     saveUsers();
@@ -614,24 +670,39 @@ function bindUserConfiguration() {
   document.querySelectorAll(".user-admin-row").forEach((formElement) => {
     formElement.addEventListener("submit", (event) => {
       event.preventDefault();
-      const username = formElement.dataset.user;
+      const userId = formElement.dataset.userId;
       const form = new FormData(formElement);
+      const username = normalizeUsername(form.get("username"));
       const clientIds = form.getAll("clientIds");
+
+      if (!username) {
+        alert("Ingresa un usuario valido.");
+        return;
+      }
+
+      if (users.some((user) => user.id !== userId && user.username === username)) {
+        alert("Ese usuario ya existe.");
+        return;
+      }
+
       if (!clientIds.length) {
         alert("Selecciona al menos un cliente habilitado.");
         return;
       }
 
-      users = users.map((user) => user.username === username ? normalizeUserRecord({
+      users = users.map((user) => user.id === userId ? normalizeUserRecord({
         ...user,
+        username,
         name: form.get("name"),
         password: form.get("password"),
         role: form.get("role"),
+        company: form.get("company"),
+        position: form.get("position"),
         clientIds,
       }) : user);
       saveUsers();
-      if (session.username === username) {
-        session = users.find((user) => user.username === username);
+      if (session.id === userId) {
+        session = users.find((user) => user.id === userId);
       }
       render();
     });
@@ -639,8 +710,8 @@ function bindUserConfiguration() {
 
   document.querySelectorAll("[data-delete-user]").forEach((button) => {
     button.addEventListener("click", () => {
-      const username = button.dataset.deleteUser;
-      users = users.filter((user) => user.username !== username);
+      const userId = button.dataset.deleteUser;
+      users = users.filter((user) => user.id !== userId);
       saveUsers();
       render();
     });
