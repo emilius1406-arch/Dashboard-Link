@@ -82,13 +82,16 @@ let steckIndicators = [
   { date: "2026-05-08", unitsToPick: 3832, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
 ];
 
-const users = [
+const USERS_STORAGE_KEY = "dashboardOperativoUsers";
+
+const baseUsers = [
   {
     username: "admin",
-    password: "admin123",
+    password: "Link@since16",
     name: "Operacion Central",
     role: "Acceso total",
     clientIds: clients.map((client) => client.id),
+    system: true,
   },
   {
     username: "supervisor",
@@ -96,6 +99,7 @@ const users = [
     name: "Supervisor Regional",
     role: "Acceso a cartera",
     clientIds: ["steck", "norte", "andes"],
+    system: true,
   },
   {
     username: "cliente",
@@ -103,6 +107,7 @@ const users = [
     name: "Usuario Steck",
     role: "Acceso cliente",
     clientIds: ["steck"],
+    system: true,
   },
   {
     username: "gmarchetta",
@@ -110,19 +115,70 @@ const users = [
     name: "Gabriela Marchetta",
     role: "Usuario Steck",
     clientIds: ["steck"],
+    system: true,
   },
 ];
+
+let users = loadUsers();
 
 const app = document.querySelector("#app");
 let session = null;
 let selectedClient = null;
 let activeSteckModule = "daily";
+let activeAdminView = false;
 let routeRows = null;
 let remitoPdfIndex = null;
 let unitQuantityIndex = null;
 let indicatorsLoaded = false;
 let dailyDateFrom = "";
 let dailyDateTo = "";
+
+function loadUsers() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]");
+    const savedByUsername = new Map(saved.map((user) => [normalizeUsername(user.username), user]));
+    return baseUsers.map((user) => ({
+      ...user,
+      ...(savedByUsername.get(user.username) || {}),
+      username: user.username,
+      system: true,
+    })).concat(saved.filter((user) => !baseUsers.some((baseUser) => baseUser.username === normalizeUsername(user.username))).map(normalizeUserRecord));
+  } catch (error) {
+    return baseUsers.map((user) => ({ ...user }));
+  }
+}
+
+function saveUsers() {
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users.map(normalizeUserRecord)));
+}
+
+function normalizeUsername(username) {
+  return String(username || "").trim().toLowerCase();
+}
+
+function normalizeUserRecord(user) {
+  return {
+    username: normalizeUsername(user.username),
+    password: String(user.password || ""),
+    name: String(user.name || ""),
+    role: String(user.role || ""),
+    clientIds: Array.isArray(user.clientIds) ? user.clientIds.filter((id) => clients.some((client) => client.id === id)) : [],
+    system: Boolean(user.system),
+  };
+}
+
+function isAdminSession() {
+  return session && session.username === "admin";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function renderPortalLogo(size = "normal") {
   return `
@@ -247,6 +303,12 @@ function render() {
     return;
   }
 
+  if (activeAdminView && isAdminSession()) {
+    renderUserConfiguration();
+    resetScroll();
+    return;
+  }
+
   if (allowedClients().length === 1) {
     selectedClient = allowedClients()[0];
   }
@@ -318,6 +380,7 @@ function loginAs(user) {
   session = user;
   selectedClient = null;
   activeSteckModule = "daily";
+  activeAdminView = false;
   render();
 }
 
@@ -325,6 +388,7 @@ function logout() {
   session = null;
   selectedClient = null;
   activeSteckModule = "daily";
+  activeAdminView = false;
   render();
 }
 
@@ -340,6 +404,7 @@ function renderTopbar(subtitle) {
         </div>
       </div>
       <div class="topbar-actions">
+        ${isAdminSession() ? `<button class="ghost-btn" type="button" id="userConfig">Configuracion de usuarios</button>` : ""}
         ${canSwitch ? `<button class="ghost-btn" type="button" id="switchClient">Cambiar cliente</button>` : ""}
         <button class="icon-btn" type="button" id="logout" aria-label="Cerrar sesion" title="Cerrar sesion">X</button>
       </div>
@@ -353,6 +418,15 @@ function bindTopbar() {
   if (switchButton) {
     switchButton.addEventListener("click", () => {
       selectedClient = null;
+      activeAdminView = false;
+      render();
+    });
+  }
+  const userConfigButton = document.querySelector("#userConfig");
+  if (userConfigButton) {
+    userConfigButton.addEventListener("click", () => {
+      selectedClient = null;
+      activeAdminView = true;
       render();
     });
   }
@@ -394,6 +468,180 @@ function renderClientSelector() {
   document.querySelectorAll("[data-client]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedClient = clientById(button.dataset.client);
+      render();
+    });
+  });
+}
+
+function renderUserConfiguration() {
+  app.innerHTML = `
+    ${renderTopbar("Administrador - configuracion de usuarios")}
+    <section class="page">
+      <div class="section-title">
+        <div>
+          <h2>Configuracion de usuarios</h2>
+          <p class="muted">Alta, baja y cambios de acceso para los usuarios del portal.</p>
+        </div>
+      </div>
+
+      <div class="admin-users-layout">
+        <article class="ops-card user-form-card">
+          <div class="search-head">
+            <span class="kpi-label">NUEVO USUARIO</span>
+          </div>
+          <form id="createUserForm" class="user-form">
+            <label class="field">
+              <span>Nombre visible</span>
+              <input name="name" required>
+            </label>
+            <label class="field">
+              <span>Usuario</span>
+              <input name="username" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span>Clave</span>
+              <input name="password" type="password" autocomplete="new-password" required>
+            </label>
+            <label class="field">
+              <span>Rol</span>
+              <input name="role" placeholder="Ej: Usuario Steck" required>
+            </label>
+            <fieldset class="access-fieldset">
+              <legend>Clientes habilitados</legend>
+              ${clients.map((client) => `
+                <label>
+                  <input type="checkbox" name="clientIds" value="${client.id}" ${client.id === "steck" ? "checked" : ""}>
+                  <span>${escapeHtml(client.name)}</span>
+                </label>
+              `).join("")}
+            </fieldset>
+            <button class="primary-btn" type="submit">Dar de alta</button>
+            <p class="error" id="userConfigError"></p>
+          </form>
+        </article>
+
+        <article class="ops-card user-list-card">
+          <div class="search-head">
+            <span class="kpi-label">USUARIOS ACTIVOS</span>
+          </div>
+          <div class="user-list">
+            ${users.map(renderUserAdminRow).join("")}
+          </div>
+        </article>
+      </div>
+    </section>
+  `;
+
+  bindTopbar();
+  bindUserConfiguration();
+}
+
+function renderUserAdminRow(user) {
+  const clientList = user.clientIds.map((id) => clientById(id)?.name).filter(Boolean).join(", ") || "Sin clientes";
+  const isProtectedAdmin = user.username === "admin";
+  return `
+    <form class="user-admin-row" data-user="${escapeHtml(user.username)}">
+      <div class="user-admin-head">
+        <strong>${escapeHtml(user.name)}</strong>
+        <span>${escapeHtml(user.username)} - ${escapeHtml(clientList)}</span>
+      </div>
+      <div class="user-admin-grid">
+        <label class="field">
+          <span>Nombre visible</span>
+          <input name="name" value="${escapeHtml(user.name)}" required>
+        </label>
+        <label class="field">
+          <span>Clave</span>
+          <input name="password" type="text" value="${escapeHtml(user.password)}" required>
+        </label>
+        <label class="field">
+          <span>Rol</span>
+          <input name="role" value="${escapeHtml(user.role)}" required>
+        </label>
+      </div>
+      <fieldset class="access-fieldset compact">
+        <legend>Clientes habilitados</legend>
+        ${clients.map((client) => `
+          <label>
+            <input type="checkbox" name="clientIds" value="${client.id}" ${user.clientIds.includes(client.id) ? "checked" : ""}>
+            <span>${escapeHtml(client.name)}</span>
+          </label>
+        `).join("")}
+      </fieldset>
+      <div class="user-admin-actions">
+        <button class="secondary-btn" type="submit">Guardar cambios</button>
+        ${isProtectedAdmin ? "" : `<button class="danger-btn" type="button" data-delete-user="${escapeHtml(user.username)}">Dar de baja</button>`}
+      </div>
+    </form>
+  `;
+}
+
+function bindUserConfiguration() {
+  const createForm = document.querySelector("#createUserForm");
+  const error = document.querySelector("#userConfigError");
+  createForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(createForm);
+    const username = normalizeUsername(form.get("username"));
+    const clientIds = form.getAll("clientIds");
+
+    if (!username) {
+      error.textContent = "Ingresa un usuario valido.";
+      return;
+    }
+
+    if (!clientIds.length) {
+      error.textContent = "Selecciona al menos un cliente habilitado.";
+      return;
+    }
+
+    if (users.some((user) => user.username === username)) {
+      error.textContent = "Ese usuario ya existe.";
+      return;
+    }
+
+    users.push(normalizeUserRecord({
+      username,
+      password: form.get("password"),
+      name: form.get("name"),
+      role: form.get("role"),
+      clientIds,
+    }));
+    saveUsers();
+    render();
+  });
+
+  document.querySelectorAll(".user-admin-row").forEach((formElement) => {
+    formElement.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const username = formElement.dataset.user;
+      const form = new FormData(formElement);
+      const clientIds = form.getAll("clientIds");
+      if (!clientIds.length) {
+        alert("Selecciona al menos un cliente habilitado.");
+        return;
+      }
+
+      users = users.map((user) => user.username === username ? normalizeUserRecord({
+        ...user,
+        name: form.get("name"),
+        password: form.get("password"),
+        role: form.get("role"),
+        clientIds,
+      }) : user);
+      saveUsers();
+      if (session.username === username) {
+        session = users.find((user) => user.username === username);
+      }
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-delete-user]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const username = button.dataset.deleteUser;
+      users = users.filter((user) => user.username !== username);
+      saveUsers();
       render();
     });
   });
