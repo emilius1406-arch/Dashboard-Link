@@ -789,7 +789,15 @@ button {
   gap: 12px;
 }
 
-.declared-form .field {
+.client-master-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, .45fr) minmax(140px, .25fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.declared-form .field,
+.client-master-form .field {
   margin-bottom: 0;
 }
 
@@ -905,6 +913,64 @@ button {
 .view-remito-btn:disabled {
   cursor: wait;
   opacity: .72;
+}
+
+.client-master-results,
+.client-master-list {
+  display: grid;
+  gap: 10px;
+}
+
+.client-master-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.client-master-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.client-master-head > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.client-master-head strong {
+  color: var(--brand);
+  font-size: 20px;
+}
+
+.client-master-head span:not(.status-pill) {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.client-master-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.client-master-card dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.client-master-card dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .pdf-modal {
@@ -1278,12 +1344,14 @@ button {
   .module-nav,
   .search-form,
   .declared-form,
+  .client-master-form,
   .declared-summary,
   .route-row summary,
   .route-detail,
   .heatmap-filters,
   .heatmap-grid,
   .result-card dl,
+  .client-master-card dl,
   .vehicle-row,
   .import-grid,
   .country-totals,

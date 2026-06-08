@@ -55,6 +55,7 @@ const ACCESS_SHEET_ID = "11SV3n8CkGJLx1sgKZhgXCg-Si3cdUcjZYeqAmQasJVs";
 const GOOGLE_SHEETS = {
   indicators: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Indicadores`,
   routes: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hojas%20de%20Ruta`,
+  clientMaster: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Ultimo%20maestro%20de%20clientes`,
   users: `https://docs.google.com/spreadsheets/d/${ACCESS_SHEET_ID}/gviz/tq?tqx=out:csv&gid=0`,
 };
 const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZntkmT5zha-bu6CvbBpzZSsFsE-4tLJ2kxHaIjICRDhHnLsnpIP1Ipjn0S5MyA/exec";
@@ -153,6 +154,7 @@ let activeSteckModule = "daily";
 let routeRows = null;
 let remitoPdfIndex = null;
 let unitQuantityIndex = null;
+let clientMasterRows = null;
 let indicatorsLoaded = false;
 let dailyDateFrom = "";
 let dailyDateTo = "";
@@ -686,7 +688,7 @@ function renderSteckDashboard(client) {
 
       ${renderModuleNav()}
 
-      ${activeSteckModule === "remitos" ? renderRemitoSearch() : activeSteckModule === "heatmap" ? renderHeatmap() : activeSteckModule === "declaredValue" ? renderDeclaredValueByRoute() : `
+      ${activeSteckModule === "remitos" ? renderRemitoSearch() : activeSteckModule === "heatmap" ? renderHeatmap() : activeSteckModule === "declaredValue" ? renderDeclaredValueByRoute() : activeSteckModule === "clientMaster" ? renderClientMasterSearch() : `
       <section class="ops-section">
         <article class="ops-card daily-filter-card">
           <div class="search-head">
@@ -823,6 +825,7 @@ function renderSteckDashboard(client) {
   bindRemitoSearch();
   bindAmbaHeatmap();
   bindDeclaredValueByRoute();
+  bindClientMasterSearch();
 }
 
 function renderModuleNav() {
@@ -831,6 +834,7 @@ function renderModuleNav() {
     ["remitos", "Buscador de Remitos"],
     ["heatmap", "Mapa de Calor"],
     ["declaredValue", "Buscador de HR"],
+    ["clientMaster", "Maestro de Clientes"],
   ];
 
   return `
@@ -904,7 +908,7 @@ function renderHeatmap() {
       <article class="ops-card heatmap-card">
         <div class="search-head">
           <span class="kpi-label">MAPA DE CALOR</span>
-          <p class="muted">Analisis por zona y criterio operativo.</p>
+          <p class="muted">AMBA agrupa por partido/localidad de entrega. Pais agrupa por provincia del cliente final.</p>
         </div>
         <form class="heatmap-filters">
           <label class="field">
@@ -936,6 +940,34 @@ function renderHeatmap() {
         <div class="empty-state" id="ambaHeatmap">
           <strong>Cargando mapa...</strong>
           <span>Consultando Hojas de Ruta.</span>
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderClientMasterSearch() {
+  return `
+    <section class="ops-section">
+      <article class="ops-card search-card">
+        <div class="search-head">
+          <span class="kpi-label">MAESTRO DE CLIENTES</span>
+          <p class="muted">Buscar clientes por nombre parcial o codigo. Datos desde la solapa Ultimo maestro de clientes.</p>
+        </div>
+        <form class="client-master-form">
+          <label class="field">
+            <span>Nombre del cliente</span>
+            <input id="clientNameQuery" type="search" placeholder="Ej: electric">
+          </label>
+          <label class="field">
+            <span>Codigo de cliente</span>
+            <input id="clientCodeQuery" type="search" inputmode="numeric" placeholder="Ej: 25807">
+          </label>
+          <button class="primary-btn" id="searchClientMaster" type="button">Buscar</button>
+        </form>
+        <div class="empty-state" id="clientMasterResults">
+          <strong>Sin busqueda activa</strong>
+          <span>Ingresa un nombre o codigo para consultar el maestro.</span>
         </div>
       </article>
     </section>
@@ -1107,6 +1139,113 @@ function renderDeclaredRouteResults(results, container, from = "", to = "") {
             `).join("")}
           </div>
         </details>
+      `).join("")}
+    </div>
+  `;
+}
+
+function bindClientMasterSearch() {
+  const searchButton = document.querySelector("#searchClientMaster");
+  if (!searchButton) {
+    return;
+  }
+
+  searchButton.addEventListener("click", runClientMasterSearch);
+  document.querySelector("#clientNameQuery").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runClientMasterSearch();
+    }
+  });
+  document.querySelector("#clientCodeQuery").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runClientMasterSearch();
+    }
+  });
+}
+
+async function runClientMasterSearch() {
+  const nameQuery = document.querySelector("#clientNameQuery").value.trim();
+  const codeQuery = document.querySelector("#clientCodeQuery").value.trim();
+  const container = document.querySelector("#clientMasterResults");
+
+  if (!nameQuery && !codeQuery) {
+    container.className = "empty-state";
+    container.innerHTML = `
+      <strong>Sin busqueda activa</strong>
+      <span>Ingresa un nombre o codigo para consultar el maestro.</span>
+    `;
+    return;
+  }
+
+  container.className = "empty-state";
+  container.innerHTML = `<strong>Buscando...</strong><span>Consultando Ultimo maestro de clientes.</span>`;
+
+  try {
+    const rows = await loadClientMasterRows();
+    const results = searchClientMasterRows(rows, { nameQuery, codeQuery });
+    renderClientMasterResults(results, container);
+  } catch (error) {
+    container.className = "empty-state";
+    container.innerHTML = `
+      <strong>No se pudo cargar el maestro</strong>
+      <span>Revisa que la solapa Ultimo maestro de clientes este disponible.</span>
+    `;
+  }
+}
+
+function searchClientMasterRows(rows, { nameQuery = "", codeQuery = "" }) {
+  const normalizedName = normalizeSearchText(nameQuery);
+  const normalizedCode = normalizeSearchText(codeQuery);
+
+  return rows
+    .filter((row) => {
+      const matchesName = !normalizedName || normalizeSearchText(row.name).includes(normalizedName);
+      const matchesCode = !normalizedCode || normalizeSearchText(row.code).includes(normalizedCode);
+      return matchesName && matchesCode;
+    })
+    .slice(0, 80);
+}
+
+function renderClientMasterResults(results, container) {
+  if (!results.length) {
+    container.className = "empty-state";
+    container.innerHTML = `
+      <strong>Sin resultados</strong>
+      <span>No encontramos clientes para los filtros ingresados.</span>
+    `;
+    return;
+  }
+
+  container.className = "client-master-results";
+  container.innerHTML = `
+    <div class="results-summary">
+      <strong>${formatNumber(results.length)} resultado${results.length === 1 ? "" : "s"}</strong>
+      <span>Mostrando hasta 80 coincidencias.</span>
+    </div>
+    <div class="client-master-list">
+      ${results.map((row) => `
+        <article class="client-master-card">
+          <div class="client-master-head">
+            <div>
+              <strong>${escapeHtml(row.name || "-")}</strong>
+              <span>Codigo ${escapeHtml(row.code || "-")}</span>
+            </div>
+            <span class="status-pill">${escapeHtml(row.expressZone || "Sin zona")}</span>
+          </div>
+          <dl>
+            <div><dt>Direccion cliente</dt><dd>${escapeHtml(row.address || "-")}</dd></div>
+            <div><dt>Municipio / partido</dt><dd>${escapeHtml(row.municipality || "-")}</dd></div>
+            <div><dt>Provincia cliente final</dt><dd>${escapeHtml(row.provinceName || row.province || "-")}</dd></div>
+            <div><dt>Direccion de entrega</dt><dd>${escapeHtml(row.deliveryAddress || "-")}</dd></div>
+            <div><dt>Localidad de entrega</dt><dd>${escapeHtml(row.deliveryCity || "-")}</dd></div>
+            <div><dt>Transporte</dt><dd>${escapeHtml(row.transportName || row.transport || "-")}</dd></div>
+            <div><dt>Mapa AMBA</dt><dd>${escapeHtml(row.ambaLabel || "-")}</dd></div>
+            <div><dt>Mapa Pais</dt><dd>${escapeHtml(row.countryLabel || "-")}</dd></div>
+            <div><dt>Observaciones</dt><dd>${escapeHtml(row.observations || "-")}</dd></div>
+          </dl>
+        </article>
       `).join("")}
     </div>
   `;
@@ -1339,6 +1478,21 @@ async function loadRouteRows() {
   return routeRows;
 }
 
+async function loadClientMasterRows() {
+  if (clientMasterRows) {
+    return clientMasterRows;
+  }
+
+  const response = await fetch(GOOGLE_SHEETS.clientMaster, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("No se pudo leer Ultimo maestro de clientes");
+  }
+
+  const csv = await response.text();
+  clientMasterRows = parseClientMasterRows(csv);
+  return clientMasterRows;
+}
+
 async function loadUnitQuantityIndex() {
   if (unitQuantityIndex) {
     return unitQuantityIndex;
@@ -1431,6 +1585,66 @@ function parseRouteRows(csv, quantityIndex = {}) {
       };
     })
     .filter((row) => row.remito || row.route || row.dispatchDate);
+}
+
+function parseClientMasterRows(csv) {
+  const { headers, rows } = parseCsv(csv);
+  return rows
+    .map((row) => {
+      const item = rowToObject(headers, row);
+      const province = item.Prov || "";
+      const provinceName = getClientProvinceName(province);
+      const municipality = item.Municipio || "";
+      const deliveryCity = item["Localidad de Entrega"] || "";
+
+      return {
+        code: item.Codigo || "",
+        name: item.Nombre || "",
+        address: item.Direccion || "",
+        province,
+        provinceName,
+        municipality,
+        postalCode: item.CP || "",
+        phone: item.Telefono || "",
+        taxId: item["CUIT/CUIL"] || "",
+        transport: item["Transp."] || "",
+        transportName: item["Nombre Transporte"] || "",
+        systemAddress: item["Direccion por sistema"] || "",
+        transportTaxId: item["CUIT Transporte"] || "",
+        expressZone: item["Expreso/Zona"] || "",
+        deliveryAddress: item["Direccion de entrega"] || "",
+        deliveryCity,
+        observations: item.Observaciones || "",
+        ambaLabel: normalizeDistrictName(municipality || deliveryCity || "Sin partido"),
+        countryLabel: provinceName || normalizeDistrictName(province || "Sin provincia"),
+      };
+    })
+    .filter((row) => row.code || row.name);
+}
+
+function getClientProvinceName(value) {
+  const key = String(value || "").trim().toUpperCase();
+  const provinces = {
+    BA: "Buenos Aires",
+    CF: "Ciudad Autonoma De Buenos Aires",
+    CABA: "Ciudad Autonoma De Buenos Aires",
+    C: "Ciudad Autonoma De Buenos Aires",
+    CORDOBA: "Cordoba",
+    CBA: "Cordoba",
+    SF: "Santa Fe",
+    SFE: "Santa Fe",
+    MZA: "Mendoza",
+  };
+
+  return provinces[key] || normalizeDistrictName(value);
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function parseCsv(csv) {
