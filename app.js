@@ -1228,23 +1228,27 @@ function renderClientMasterResults(results, container) {
       ${results.map((row) => `
         <article class="client-master-card">
           <div class="client-master-head">
-            <div>
-              <strong>${escapeHtml(row.name || "-")}</strong>
-              <span>Codigo ${escapeHtml(row.code || "-")}</span>
-            </div>
+            <strong>${escapeHtml(row.name || "-")}</strong>
+            <strong>Codigo Cliente ${escapeHtml(row.code || "-")}</strong>
             <span class="status-pill">${escapeHtml(row.expressZone || "Sin zona")}</span>
           </div>
-          <dl>
-            <div><dt>Direccion cliente</dt><dd>${escapeHtml(row.address || "-")}</dd></div>
-            <div><dt>Municipio / partido</dt><dd>${escapeHtml(row.municipality || "-")}</dd></div>
-            <div><dt>Provincia cliente final</dt><dd>${escapeHtml(row.provinceName || row.province || "-")}</dd></div>
-            <div><dt>Direccion de entrega</dt><dd>${escapeHtml(row.deliveryAddress || "-")}</dd></div>
-            <div><dt>Localidad de entrega</dt><dd>${escapeHtml(row.deliveryCity || "-")}</dd></div>
-            <div><dt>Transporte</dt><dd>${escapeHtml(row.transportName || row.transport || "-")}</dd></div>
-            <div><dt>Mapa AMBA</dt><dd>${escapeHtml(row.ambaLabel || "-")}</dd></div>
-            <div><dt>Mapa Pais</dt><dd>${escapeHtml(row.countryLabel || "-")}</dd></div>
-            <div><dt>Observaciones</dt><dd>${escapeHtml(row.observations || "-")}</dd></div>
-          </dl>
+          <div class="client-master-bands">
+            <dl>
+              <div><dt>Direccion cliente</dt><dd>${escapeHtml(row.address || "-")}</dd></div>
+              <div><dt>Municipio / partido</dt><dd>${escapeHtml(row.ambaLabel || row.municipality || "-")}</dd></div>
+              <div><dt>Provincia cliente final</dt><dd>${escapeHtml(row.countryLabel || row.provinceName || row.province || "-")}</dd></div>
+            </dl>
+            <dl>
+              <div><dt>Direccion de entrega</dt><dd>${escapeHtml(row.deliveryAddress || "-")}</dd></div>
+              <div><dt>Localidad de entrega</dt><dd>${escapeHtml(row.deliveryCity || "-")}</dd></div>
+              <div><dt>Transporte</dt><dd>${escapeHtml(row.transportLabel || "-")}</dd></div>
+            </dl>
+            <dl>
+              <div><dt>Mapa AMBA</dt><dd>${escapeHtml(row.ambaLabel || "-")}</dd></div>
+              <div><dt>Mapa Pais</dt><dd>${escapeHtml(row.countryLabel || "-")}</dd></div>
+              <div><dt>Observaciones</dt><dd>${escapeHtml(row.observations || "-")}</dd></div>
+            </dl>
+          </div>
         </article>
       `).join("")}
     </div>
@@ -1296,7 +1300,7 @@ function countHeatmap(rows, options) {
   rows
     .filter((row) => row.dispatchDate && (!from || row.dispatchDate >= from) && (!to || row.dispatchDate <= to) && (!row.status || row.status.toUpperCase().includes("ENTREGADO")))
     .forEach((row) => {
-      const group = scope === "pais" ? getProvinceLabel(row) : normalizeDistrictName(row.district || "Sin partido");
+      const group = scope === "pais" ? getProvinceLabel(row) : getAmbaPartyLabel(row.district || row.address || "Sin partido");
       let value = 1;
 
       if (metric === "boca") {
@@ -1332,6 +1336,104 @@ function normalizeDistrictName(value) {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function getAmbaPartyLabel(value) {
+  const normalized = normalizeDistrictName(value);
+  const key = normalizeSearchText(normalized);
+  const partyByLocality = {
+    "caseros": "Tres de Febrero",
+    "santos lugares": "Tres de Febrero",
+    "ciudadela": "Tres de Febrero",
+    "saenz pena": "Tres de Febrero",
+    "villa bosch": "Tres de Febrero",
+    "martin coronado": "Tres de Febrero",
+    "loma hermosa": "Tres de Febrero",
+    "el palomar": "Moron",
+    "castelar": "Moron",
+    "haedo": "Moron",
+    "ramos mejia": "La Matanza",
+    "san justo": "La Matanza",
+    "isidro casanova": "La Matanza",
+    "laferrere": "La Matanza",
+    "villa luzuriaga": "La Matanza",
+    "tapiales": "La Matanza",
+    "martinez": "San Isidro",
+    "acassuso": "San Isidro",
+    "beccar": "San Isidro",
+    "boulogne": "San Isidro",
+    "florida": "Vicente Lopez",
+    "munro": "Vicente Lopez",
+    "olivos": "Vicente Lopez",
+    "vicente lopez": "Vicente Lopez",
+    "wilde": "Avellaneda",
+    "sarandi": "Avellaneda",
+    "dock sud": "Avellaneda",
+    "bernal": "Quilmes",
+    "don bosco": "Quilmes",
+    "ezpeleta": "Quilmes",
+    "banfield": "Lomas De Zamora",
+    "temperley": "Lomas De Zamora",
+    "turdera": "Lomas De Zamora",
+    "remedios de escalada": "Lanus",
+    "monte chingolo": "Lanus",
+    "gerli": "Lanus",
+    "adrogue": "Almirante Brown",
+    "burzaco": "Almirante Brown",
+    "longchamps": "Almirante Brown",
+    "claypole": "Almirante Brown",
+    "rafael calzada": "Almirante Brown",
+    "monte grande": "Esteban Echeverria",
+    "luis guillon": "Esteban Echeverria",
+    "el jaguel": "Esteban Echeverria",
+    "ezeiza": "Ezeiza",
+    "tristan suarez": "Ezeiza",
+    "canning": "Ezeiza",
+    "san fernando": "San Fernando",
+    "victoria": "San Fernando",
+    "virreyes": "San Fernando",
+    "tigre": "Tigre",
+    "don torcuato": "Tigre",
+    "benavidez": "Tigre",
+    "pacheco": "Tigre",
+    "pilar": "Pilar",
+    "del viso": "Pilar",
+    "villa rosa": "Pilar",
+    "garin": "Escobar",
+    "belen de escobar": "Escobar",
+    "maschwitz": "Escobar",
+    "jose c paz": "Jose C Paz",
+    "grand bourg": "Malvinas Argentinas",
+    "tortuguitas": "Malvinas Argentinas",
+    "los polvorines": "Malvinas Argentinas",
+    "bella vista": "San Miguel",
+    "muniz": "San Miguel",
+    "hurlingham": "Hurlingham",
+    "villa tesei": "Hurlingham",
+    "ituzaingo": "Ituzaingo",
+    "merlo": "Merlo",
+    "libertad": "Merlo",
+    "padua": "Merlo",
+    "moreno": "Moreno",
+    "paso del rey": "Moreno",
+    "moron": "Moron",
+    "quilmes": "Quilmes",
+    "avellaneda": "Avellaneda",
+    "lanus": "Lanus",
+    "lomas de zamora": "Lomas De Zamora",
+    "almirante brown": "Almirante Brown",
+    "esteban echeverria": "Esteban Echeverria",
+    "la matanza": "La Matanza",
+    "tres de febrero": "Tres de Febrero",
+    "san isidro": "San Isidro",
+    "san martin": "General San Martin",
+    "general san martin": "General San Martin",
+    "ciudad autonoma de buenos aires": "Ciudad Autónoma de Buenos Aires",
+    "capital federal": "Ciudad Autónoma de Buenos Aires",
+    "caba": "Ciudad Autónoma de Buenos Aires",
+  };
+
+  return partyByLocality[key] || normalized;
 }
 
 function getProvinceLabel(row) {
@@ -1596,6 +1698,8 @@ function parseClientMasterRows(csv) {
       const provinceName = getClientProvinceName(province);
       const municipality = item.Municipio || "";
       const deliveryCity = item["Localidad de Entrega"] || "";
+      const expressZone = item["Expreso/Zona"] || "";
+      const transportName = item["Nombre Transporte"] || "";
 
       return {
         code: item.Codigo || "",
@@ -1608,14 +1712,15 @@ function parseClientMasterRows(csv) {
         phone: item.Telefono || "",
         taxId: item["CUIT/CUIL"] || "",
         transport: item["Transp."] || "",
-        transportName: item["Nombre Transporte"] || "",
+        transportName,
         systemAddress: item["Direccion por sistema"] || "",
         transportTaxId: item["CUIT Transporte"] || "",
-        expressZone: item["Expreso/Zona"] || "",
+        expressZone,
         deliveryAddress: item["Direccion de entrega"] || "",
         deliveryCity,
         observations: item.Observaciones || "",
-        ambaLabel: normalizeDistrictName(municipality || deliveryCity || "Sin partido"),
+        transportLabel: getClientTransportLabel(transportName, expressZone),
+        ambaLabel: getAmbaPartyLabel(municipality || deliveryCity || "Sin partido"),
         countryLabel: provinceName || normalizeDistrictName(province || "Sin provincia"),
       };
     })
@@ -1626,9 +1731,9 @@ function getClientProvinceName(value) {
   const key = String(value || "").trim().toUpperCase();
   const provinces = {
     BA: "Buenos Aires",
-    CF: "Ciudad Autonoma De Buenos Aires",
-    CABA: "Ciudad Autonoma De Buenos Aires",
-    C: "Ciudad Autonoma De Buenos Aires",
+    CF: "Ciudad Autónoma de Buenos Aires",
+    CABA: "Ciudad Autónoma de Buenos Aires",
+    C: "Ciudad Autónoma de Buenos Aires",
     CORDOBA: "Cordoba",
     CBA: "Cordoba",
     SF: "Santa Fe",
@@ -1637,6 +1742,20 @@ function getClientProvinceName(value) {
   };
 
   return provinces[key] || normalizeDistrictName(value);
+}
+
+function getClientTransportLabel(transportName, expressZone) {
+  const transport = String(transportName || "").trim();
+  const zone = String(expressZone || "").trim();
+  if (normalizeSearchText(transport) === "propio") {
+    return "Propio";
+  }
+
+  if (transport) {
+    return `Expreso por ${zone ? `${zone} - ` : ""}${transport}`;
+  }
+
+  return zone ? `Expreso por ${zone}` : "-";
 }
 
 function normalizeSearchText(value) {

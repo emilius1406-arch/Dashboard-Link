@@ -931,21 +931,17 @@ button {
 }
 
 .client-master-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.client-master-head > div {
   display: grid;
-  gap: 4px;
-  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, .45fr) auto;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .client-master-head strong {
   color: var(--brand);
-  font-size: 20px;
+  font-size: 22px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .client-master-head span:not(.status-pill) {
@@ -953,11 +949,34 @@ button {
   font-weight: 900;
 }
 
-.client-master-card dl {
+.client-master-bands {
+  display: grid;
+  gap: 8px;
+}
+
+.client-master-bands dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.client-master-bands dl:nth-child(1) {
+  background: #fff;
+  border-left: 5px solid var(--brand);
+}
+
+.client-master-bands dl:nth-child(2) {
+  background: #f9f8f5;
+  border-left: 5px solid var(--accent);
+}
+
+.client-master-bands dl:nth-child(3) {
+  background: #f4f7f4;
+  border-left: 5px solid var(--ok);
 }
 
 .client-master-card dt {
@@ -1351,7 +1370,8 @@ button {
   .heatmap-filters,
   .heatmap-grid,
   .result-card dl,
-  .client-master-card dl,
+  .client-master-head,
+  .client-master-bands dl,
   .vehicle-row,
   .import-grid,
   .country-totals,
