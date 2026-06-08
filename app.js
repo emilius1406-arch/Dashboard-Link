@@ -1341,6 +1341,49 @@ function normalizeDistrictName(value) {
 function getAmbaPartyLabel(value) {
   const normalized = normalizeDistrictName(value);
   const key = normalizeSearchText(normalized);
+  const enabledParties = new Set([
+    "ciudad autonoma de buenos aires",
+    "almirante brown",
+    "avellaneda",
+    "berazategui",
+    "esteban echeverria",
+    "ezeiza",
+    "florencio varela",
+    "general san martin",
+    "hurlingham",
+    "ituzaingo",
+    "jose c paz",
+    "la matanza",
+    "lanus",
+    "lomas de zamora",
+    "malvinas argentinas",
+    "merlo",
+    "moron",
+    "quilmes",
+    "san fernando",
+    "san isidro",
+    "san miguel",
+    "tigre",
+    "tres de febrero",
+    "vicente lopez",
+    "escobar",
+    "general rodriguez",
+    "marcos paz",
+    "moreno",
+    "pilar",
+    "presidente peron",
+    "san vicente",
+    "zarate",
+    "campana",
+    "exaltacion de la cruz",
+    "lujan",
+    "mercedes",
+    "general las heras",
+    "canuelas",
+    "la plata",
+    "berisso",
+    "ensenada",
+  ]);
   const partyByLocality = {
     "caseros": "Tres de Febrero",
     "santos lugares": "Tres de Febrero",
@@ -1402,6 +1445,29 @@ function getAmbaPartyLabel(value) {
     "garin": "Escobar",
     "belen de escobar": "Escobar",
     "maschwitz": "Escobar",
+    "general rodriguez": "General Rodriguez",
+    "marcos paz": "Marcos Paz",
+    "presidente peron": "Presidente Peron",
+    "guernica": "Presidente Peron",
+    "san vicente": "San Vicente",
+    "alejandro korn": "San Vicente",
+    "zarate": "Zarate",
+    "campana": "Campana",
+    "exaltacion de la cruz": "Exaltacion De La Cruz",
+    "capilla del senor": "Exaltacion De La Cruz",
+    "lujan": "Lujan",
+    "mercedes": "Mercedes",
+    "general las heras": "General Las Heras",
+    "canuelas": "Canuelas",
+    "la plata": "La Plata",
+    "tolosa": "La Plata",
+    "gonnet": "La Plata",
+    "city bell": "La Plata",
+    "villa elisa": "La Plata",
+    "berisso": "Berisso",
+    "ensenada": "Ensenada",
+    "berazategui": "Berazategui",
+    "florencio varela": "Florencio Varela",
     "jose c paz": "Jose C Paz",
     "grand bourg": "Malvinas Argentinas",
     "tortuguitas": "Malvinas Argentinas",
@@ -1433,7 +1499,8 @@ function getAmbaPartyLabel(value) {
     "caba": "Ciudad Autónoma de Buenos Aires",
   };
 
-  return partyByLocality[key] || normalized;
+  const mapped = partyByLocality[key] || normalized;
+  return enabledParties.has(normalizeSearchText(mapped)) ? mapped : normalized;
 }
 
 function getProvinceLabel(row) {
@@ -1720,7 +1787,7 @@ function parseClientMasterRows(csv) {
         deliveryCity,
         observations: item.Observaciones || "",
         transportLabel: getClientTransportLabel(transportName, expressZone),
-        ambaLabel: getAmbaPartyLabel(municipality || deliveryCity || "Sin partido"),
+        ambaLabel: getAmbaPartyLabel(deliveryCity || municipality || "Sin partido"),
         countryLabel: provinceName || normalizeDistrictName(province || "Sin provincia"),
       };
     })
