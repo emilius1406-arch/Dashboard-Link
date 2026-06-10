@@ -454,7 +454,15 @@ function renderLogin() {
           </label>
           <label class="field">
             <span>Clave</span>
-            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <div class="password-control">
+              <input id="password" name="password" type="password" autocomplete="current-password" required>
+              <button id="togglePassword" class="password-toggle" type="button" aria-label="Mostrar clave" title="Mostrar clave">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
           </label>
           <button class="primary-btn" type="submit">Ingresar</button>
           <p class="error" id="loginError"></p>
@@ -464,6 +472,16 @@ function renderLogin() {
   `;
 
   document.querySelector("#loginForm").addEventListener("submit", handleLogin);
+  document.querySelector("#togglePassword").addEventListener("click", togglePasswordVisibility);
+}
+
+function togglePasswordVisibility() {
+  const input = document.querySelector("#password");
+  const button = document.querySelector("#togglePassword");
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  button.setAttribute("aria-label", shouldShow ? "Ocultar clave" : "Mostrar clave");
+  button.setAttribute("title", shouldShow ? "Ocultar clave" : "Mostrar clave");
 }
 
 async function handleLogin(event) {
