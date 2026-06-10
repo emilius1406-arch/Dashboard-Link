@@ -13,16 +13,17 @@ const clients = [
     tasks: ["Control de ingreso a base", "Estado de servicios", "Parte operativo diario"],
   },
   {
-    id: "norte",
-    name: "Norte Retail",
-    initials: "NR",
-    color: "#0f766e",
-    sites: "12 tiendas",
-    active: 76,
-    pending: 14,
-    sla: "91%",
-    alerts: "Picos de demanda",
-    tasks: ["Reposicion critica", "Reclamos abiertos", "Seguimiento nocturno"],
+    id: "syngenta",
+    name: "Syngenta",
+    accessColumns: ["Syngenta", "Norte Retail"],
+    initials: "SYN",
+    color: "#2f3f8f",
+    sites: "Operacion Syngenta",
+    active: 0,
+    pending: 0,
+    sla: "100%",
+    alerts: "Cliente en configuracion",
+    tasks: ["Configurar indicadores", "Validar maestro operativo", "Definir tableros Syngenta"],
   },
   {
     id: "andes",
@@ -106,7 +107,7 @@ const fallbackUsers = [
     role: "Acceso a cartera",
     company: "Link Soluciones Logisticas",
     position: "Supervisor",
-    clientIds: ["steck", "norte", "andes"],
+    clientIds: ["steck", "syngenta", "andes"],
     system: true,
   },
   {
@@ -217,7 +218,7 @@ function parseUserRows(csv) {
       const item = rowToObject(headers, row);
       const username = normalizeUsername(item.Usuario);
       const clientIds = clients
-        .filter((client) => isYesValue(item[client.name]))
+        .filter((client) => getClientAccessColumns(client).some((column) => isYesValue(item[column])))
         .map((client) => client.id);
 
       return normalizeUserRecord({
@@ -242,6 +243,10 @@ function isYesValue(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") === "si";
+}
+
+function getClientAccessColumns(client) {
+  return client.accessColumns || [client.name];
 }
 
 function syncActiveSessionUser() {
@@ -299,6 +304,14 @@ function renderClientLogo(client) {
     return `
       <div class="client-logo client-logo-steck" aria-label="Steck">
         <img src="assets/logo-steck.png" alt="Steck">
+      </div>
+    `;
+  }
+
+  if (client.id === "syngenta") {
+    return `
+      <div class="client-logo client-logo-syngenta" aria-label="Syngenta">
+        <img src="assets/logo-syngenta.png" alt="Syngenta">
       </div>
     `;
   }

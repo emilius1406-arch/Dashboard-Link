@@ -349,6 +349,21 @@ button {
   display: block;
 }
 
+.client-logo-syngenta {
+  width: 152px;
+  height: 62px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+}
+
+.client-logo-syngenta img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .client-card h3,
 .metric strong,
 .panel h3 {
