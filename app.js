@@ -152,6 +152,7 @@ const app = document.querySelector("#app");
 let session = null;
 let selectedClient = null;
 let activeSteckModule = "daily";
+let activeSyngentaModule = "forklifts";
 let routeRows = null;
 let remitoPdfIndex = null;
 let unitQuantityIndex = null;
@@ -511,6 +512,7 @@ function loginAs(user) {
   session = user;
   selectedClient = null;
   activeSteckModule = "daily";
+  activeSyngentaModule = "forklifts";
   render();
 }
 
@@ -518,6 +520,7 @@ function logout() {
   session = null;
   selectedClient = null;
   activeSteckModule = "daily";
+  activeSyngentaModule = "forklifts";
   render();
 }
 
@@ -598,6 +601,11 @@ function renderDashboard(client) {
     return;
   }
 
+  if (isSyngentaClient(client)) {
+    renderSyngentaDashboard({ ...clients.find((item) => item.id === "syngenta"), ...client, id: "syngenta", name: "Syngenta" });
+    return;
+  }
+
   const statusClass = client.pending > 10 ? "warn" : "";
   app.innerHTML = `
     ${renderTopbar(`${session.role} - ${client.name}`)}
@@ -660,6 +668,93 @@ function renderDashboard(client) {
   `;
 
   bindTopbar();
+}
+
+function isSyngentaClient(client) {
+  return client?.id === "syngenta" || normalizeSearchText(client?.name) === "syngenta";
+}
+
+function renderSyngentaDashboard(client) {
+  app.innerHTML = `
+    ${renderTopbar(`${session.role} - ${client.name}`)}
+    <section class="page syngenta-page">
+      <div class="section-title">
+        <div class="client-head">
+          ${renderClientLogo(client)}
+          <div>
+            <h2>Syngenta</h2>
+            <p class="muted">${client.sites} - tablero operativo</p>
+          </div>
+        </div>
+        <div class="status-row">
+          <span class="status-pill">${client.alerts}</span>
+        </div>
+      </div>
+
+      ${renderSyngentaModuleNav()}
+      ${renderSyngentaModuleContent()}
+    </section>
+  `;
+
+  bindTopbar();
+  bindSyngentaModuleNav();
+}
+
+function renderSyngentaModuleNav() {
+  const modules = [
+    ["forklifts", "Gestion de Autoelevadores"],
+    ["daily", "Indicadores Diarios"],
+    ["staff", "Gestion de Personal"],
+  ];
+
+  return `
+    <nav class="module-nav syngenta-module-nav" aria-label="Modulos Syngenta">
+      ${modules.map(([id, label]) => `
+        <button class="${activeSyngentaModule === id ? "active" : ""}" type="button" data-syngenta-module="${id}">${label}</button>
+      `).join("")}
+    </nav>
+  `;
+}
+
+function bindSyngentaModuleNav() {
+  document.querySelectorAll("[data-syngenta-module]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeSyngentaModule = button.dataset.syngentaModule;
+      render();
+    });
+  });
+}
+
+function renderSyngentaModuleContent() {
+  const content = {
+    forklifts: {
+      title: "GESTION DE AUTOELEVADORES",
+      body: "Modulo preparado para controlar flota, disponibilidad, novedades y mantenimiento.",
+    },
+    daily: {
+      title: "INDICADORES DIARIOS",
+      body: "Modulo preparado para cargar y consultar indicadores diarios de la operacion Syngenta.",
+    },
+    staff: {
+      title: "GESTION DE PERSONAL",
+      body: "Modulo preparado para administrar dotacion, asistencia y asignaciones operativas.",
+    },
+  }[activeSyngentaModule] || {
+    title: "MODULO SYNGENTA",
+    body: "Modulo en preparacion.",
+  };
+
+  return `
+    <section class="ops-section">
+      <article class="ops-card syngenta-module-card">
+        <span class="kpi-label">${content.title}</span>
+        <div class="empty-state">
+          <strong>Modulo en preparacion</strong>
+          <span>${content.body}</span>
+        </div>
+      </article>
+    </section>
+  `;
 }
 
 function renderSteckDashboard(client) {

@@ -530,6 +530,11 @@ button {
   gap: 16px;
 }
 
+.syngenta-page {
+  display: grid;
+  gap: 16px;
+}
+
 .ops-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -538,7 +543,7 @@ button {
 
 .module-nav {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
   padding: 10px;
   background: var(--panel);
@@ -561,6 +566,15 @@ button {
   color: #fff;
   background: var(--brand);
   border-color: var(--brand);
+}
+
+.syngenta-module-nav button.active {
+  background: #2f3f8f;
+  border-color: #2f3f8f;
+}
+
+.syngenta-module-card {
+  border-top: 5px solid #2f3f8f;
 }
 
 .ops-card {
