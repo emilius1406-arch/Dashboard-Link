@@ -62,6 +62,12 @@ const GOOGLE_SHEETS = {
 const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZntkmT5zha-bu6CvbBpzZSsFsE-4tLJ2kxHaIjICRDhHnLsnpIP1Ipjn0S5MyA/exec";
 const REMITO_PDF_FALLBACK_URL = "data/remitos-pdfs.json";
 const UNIT_QUANTITY_INDEX_URL = "data/unidades-remito.json";
+const SYNGENTA_FORKLIFT_STORAGE_KEY = "syngentaForkliftManagement";
+const SYNGENTA_PLANTS = [
+  { id: "araucaria", name: "La Araucaria", manager: "Matias Cordoba" },
+  { id: "vt1", name: "VT1", manager: "Responsable VT1" },
+  { id: "vt2", name: "VT2", manager: "Responsable VT2" },
+];
 
 let steckIndicators = [
   { date: "2026-04-07", unitsToPick: 23128, utilitarios: 1, chasis: 0, containersChina: 0, containersBrazil: 0, palletsIn: 0, previousMonthPositions: 0 },
@@ -698,6 +704,7 @@ function renderSyngentaDashboard(client) {
 
   bindTopbar();
   bindSyngentaModuleNav();
+  bindForkliftManagement();
 }
 
 function renderSyngentaModuleNav() {
@@ -726,11 +733,11 @@ function bindSyngentaModuleNav() {
 }
 
 function renderSyngentaModuleContent() {
+  if (activeSyngentaModule === "forklifts") {
+    return renderForkliftManagement();
+  }
+
   const content = {
-    forklifts: {
-      title: "GESTION DE AUTOELEVADORES",
-      body: "Modulo preparado para controlar flota, disponibilidad, novedades y mantenimiento.",
-    },
     daily: {
       title: "INDICADORES DIARIOS",
       body: "Modulo preparado para cargar y consultar indicadores diarios de la operacion Syngenta.",
@@ -755,6 +762,465 @@ function renderSyngentaModuleContent() {
       </article>
     </section>
   `;
+}
+
+function renderForkliftManagement() {
+  const data = loadForkliftData();
+  const activeForklifts = data.forklifts.filter((forklift) => forklift.status === "active");
+  const closedForklifts = data.forklifts.filter((forklift) => forklift.status === "closed");
+  const pendingRepairs = data.repairs.filter((repair) => repair.authorizationStatus === "pending");
+  const currentMonth = todayIso().slice(0, 7);
+  const rentalReport = buildForkliftRentalReport(data.forklifts, currentMonth);
+  const repairReport = buildForkliftRepairReport(data.repairs, currentMonth);
+
+  return `
+    <section class="ops-section">
+      <article class="ops-card syngenta-module-card forklift-shell">
+        <div class="search-head">
+          <span class="kpi-label">GESTION DE AUTOELEVADORES</span>
+          <p class="muted">Control de altas, bajas, check-in, check-out, reparaciones y reportes mensuales del proveedor Hovsep.</p>
+        </div>
+
+        <div class="forklift-kpis">
+          <div><span>Autoelevadores activos</span><strong>${formatNumber(activeForklifts.length)}</strong></div>
+          <div><span>Plantas</span><strong>${formatNumber(SYNGENTA_PLANTS.length)}</strong></div>
+          <div><span>Autorizaciones pendientes</span><strong>${formatNumber(pendingRepairs.length)}</strong></div>
+          <div><span>Alquiler ${formatDisplayMonth(currentMonth)}</span><strong>$ ${formatNumber(Math.round(rentalReport.total))}</strong></div>
+        </div>
+
+        <div class="forklift-layout">
+          <section class="forklift-panel">
+            <h3>Alta / Check-in</h3>
+            <form id="forkliftCheckInForm" class="forklift-form">
+              <label class="field">
+                <span>Codigo interno</span>
+                <input name="code" placeholder="Ej: SYN-AE-001" required>
+              </label>
+              <label class="field">
+                <span>Planta</span>
+                <select name="plant" required>${renderPlantOptions()}</select>
+              </label>
+              <label class="field">
+                <span>Responsable Link</span>
+                <input name="responsible" value="Matias Cordoba" required>
+              </label>
+              <label class="field">
+                <span>Fecha de alta</span>
+                <input name="startDate" type="date" value="${todayIso()}" required>
+              </label>
+              <label class="field">
+                <span>Alquiler mensual estimado</span>
+                <input name="monthlyRate" inputmode="decimal" placeholder="Ej: 1200000" required>
+              </label>
+              <label class="field full">
+                <span>Fotos / videos check-in</span>
+                <input name="files" type="file" accept="image/*,video/*" multiple>
+              </label>
+              <label class="field full">
+                <span>Comentarios de estado</span>
+                <textarea name="comments" rows="3" placeholder="Estado general, golpes, cubiertas, horquillas, bateria, luces..."></textarea>
+              </label>
+              <button class="primary-btn" type="submit">Registrar check-in</button>
+            </form>
+          </section>
+
+          <section class="forklift-panel">
+            <h3>Reparacion / Autorizacion</h3>
+            <form id="forkliftRepairForm" class="forklift-form">
+              <label class="field">
+                <span>Autoelevador</span>
+                <select name="forkliftId" required>${renderForkliftOptions(activeForklifts)}</select>
+              </label>
+              <label class="field">
+                <span>Fecha</span>
+                <input name="date" type="date" value="${todayIso()}" required>
+              </label>
+              <label class="field">
+                <span>Causa</span>
+                <select name="cause">
+                  <option value="mal uso">Mal uso / negligencia</option>
+                  <option value="desgaste">Desgaste operativo</option>
+                  <option value="proveedor">A cargo proveedor</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Costo estimado</span>
+                <input name="estimatedCost" inputmode="decimal" placeholder="Ej: 180000" required>
+              </label>
+              <label class="field">
+                <span>Estado autorizacion</span>
+                <select name="authorizationStatus">
+                  <option value="pending">Pendiente</option>
+                  <option value="authorized">Autorizada</option>
+                  <option value="rejected">Rechazada</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Autorizado por</span>
+                <input name="authorizedBy" placeholder="Responsable de planta">
+              </label>
+              <label class="field full">
+                <span>Pedido / diagnostico Hovsep</span>
+                <textarea name="description" rows="3" required></textarea>
+              </label>
+              <button class="primary-btn" type="submit">Registrar reparacion</button>
+            </form>
+          </section>
+
+          <section class="forklift-panel">
+            <h3>Baja / Check-out</h3>
+            <form id="forkliftCheckOutForm" class="forklift-form">
+              <label class="field">
+                <span>Autoelevador</span>
+                <select name="forkliftId" required>${renderForkliftOptions(activeForklifts)}</select>
+              </label>
+              <label class="field">
+                <span>Fecha de baja</span>
+                <input name="endDate" type="date" value="${todayIso()}" required>
+              </label>
+              <label class="field">
+                <span>Responsable Link</span>
+                <input name="responsible" required>
+              </label>
+              <label class="field full">
+                <span>Fotos / videos check-out</span>
+                <input name="files" type="file" accept="image/*,video/*" multiple>
+              </label>
+              <label class="field full">
+                <span>Comentarios de devolucion</span>
+                <textarea name="comments" rows="3" placeholder="Comparacion contra check-in y discrepancias detectadas."></textarea>
+              </label>
+              <button class="primary-btn" type="submit">Registrar check-out</button>
+            </form>
+          </section>
+        </div>
+
+        ${renderForkliftInventory(activeForklifts, closedForklifts, data.repairs)}
+        ${renderForkliftReports(currentMonth, rentalReport, repairReport)}
+      </article>
+    </section>
+  `;
+}
+
+function renderPlantOptions(selected = "") {
+  return SYNGENTA_PLANTS.map((plant) => `<option value="${plant.id}" ${plant.id === selected ? "selected" : ""}>${plant.name} - ${plant.manager}</option>`).join("");
+}
+
+function renderForkliftOptions(forklifts) {
+  if (!forklifts.length) {
+    return `<option value="">Sin autoelevadores activos</option>`;
+  }
+
+  return forklifts.map((forklift) => `<option value="${forklift.id}">${forklift.code} - ${getPlantName(forklift.plant)}</option>`).join("");
+}
+
+function renderForkliftInventory(activeForklifts, closedForklifts, repairs) {
+  const all = [...activeForklifts, ...closedForklifts];
+  return `
+    <section class="forklift-panel wide">
+      <div class="forklift-panel-head">
+        <h3>Inventario e historial</h3>
+        <span>${formatNumber(all.length)} equipos registrados</span>
+      </div>
+      ${all.length ? `
+        <div class="forklift-list">
+          ${all.map((forklift) => {
+            const forkliftRepairs = repairs.filter((repair) => repair.forkliftId === forklift.id);
+            return `
+              <details class="forklift-row" ${forklift.status === "active" ? "open" : ""}>
+                <summary>
+                  <div><strong>${escapeHtml(forklift.code)}</strong><span>${getPlantName(forklift.plant)} - Hovsep</span></div>
+                  <div><span>Alta</span><strong>${formatDisplayDate(forklift.startDate)}</strong></div>
+                  <div><span>Estado</span><strong>${forklift.status === "active" ? "Activo" : "Baja"}</strong></div>
+                  <div><span>Alquiler mensual</span><strong>$ ${formatNumber(forklift.monthlyRate)}</strong></div>
+                </summary>
+                <div class="forklift-detail-grid">
+                  <div><span>Check-in responsable</span><strong>${escapeHtml(forklift.checkIn.responsible || "-")}</strong></div>
+                  <div><span>Archivos check-in</span><strong>${formatFileList(forklift.checkIn.files)}</strong></div>
+                  <div><span>Comentarios check-in</span><strong>${escapeHtml(forklift.checkIn.comments || "-")}</strong></div>
+                  <div><span>Check-out</span><strong>${forklift.checkOut ? formatDisplayDate(forklift.checkOut.date) : "-"}</strong></div>
+                  <div><span>Archivos check-out</span><strong>${forklift.checkOut ? formatFileList(forklift.checkOut.files) : "-"}</strong></div>
+                  <div><span>Comentarios check-out</span><strong>${escapeHtml(forklift.checkOut?.comments || "-")}</strong></div>
+                </div>
+                <div class="repair-history">
+                  <strong>Historial de reparaciones</strong>
+                  ${forkliftRepairs.length ? forkliftRepairs.map((repair) => `
+                    <div class="repair-line">
+                      <span>${formatDisplayDate(repair.date)} - ${escapeHtml(repair.cause)} - ${escapeHtml(repair.authorizationStatus)}</span>
+                      <strong>$ ${formatNumber(repair.estimatedCost)} - ${escapeHtml(repair.authorizedBy || "Sin autorizador")}</strong>
+                    </div>
+                  `).join("") : `<span class="muted">Sin reparaciones registradas.</span>`}
+                </div>
+              </details>
+            `;
+          }).join("")}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <strong>Sin autoelevadores cargados</strong>
+          <span>Registra el primer check-in para comenzar la trazabilidad.</span>
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function renderForkliftReports(month, rentalReport, repairReport) {
+  return `
+    <section class="forklift-panel wide">
+      <div class="forklift-panel-head">
+        <h3>Control mensual Hovsep</h3>
+        <span>${formatDisplayMonth(month)}</span>
+      </div>
+      <form class="forklift-report-form" id="forkliftReportForm">
+        <label class="field">
+          <span>Mes de cierre</span>
+          <input name="month" type="month" value="${month}">
+        </label>
+        <button class="secondary-btn" type="button" id="downloadRentalReport">Descargar alquileres</button>
+        <button class="secondary-btn" type="button" id="downloadRepairReport">Descargar reparaciones</button>
+      </form>
+      <div class="forklift-report-grid">
+        <div>
+          <span>Alquileres estimados</span>
+          <strong>$ ${formatNumber(Math.round(rentalReport.total))}</strong>
+        </div>
+        <div>
+          <span>Reparaciones estimadas</span>
+          <strong>$ ${formatNumber(Math.round(repairReport.total))}</strong>
+        </div>
+      </div>
+      <div class="district-list">
+        ${rentalReport.byPlant.map((row) => `
+          <div class="district-row">
+            <span>${row.plant}</span>
+            <strong>$ ${formatNumber(Math.round(row.amount))}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function bindForkliftManagement() {
+  const checkInForm = document.querySelector("#forkliftCheckInForm");
+  if (!checkInForm) {
+    return;
+  }
+
+  checkInForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(checkInForm);
+    const data = loadForkliftData();
+    data.forklifts.push({
+      id: createUserId(),
+      code: String(form.get("code") || "").trim(),
+      plant: form.get("plant"),
+      provider: "Hovsep",
+      monthlyRate: parseSheetNumber(form.get("monthlyRate")),
+      startDate: form.get("startDate"),
+      endDate: "",
+      status: "active",
+      checkIn: {
+        date: form.get("startDate"),
+        responsible: form.get("responsible"),
+        comments: form.get("comments"),
+        files: getFileNames(checkInForm.elements.files.files),
+      },
+      checkOut: null,
+    });
+    saveForkliftData(data);
+    render();
+  });
+
+  document.querySelector("#forkliftRepairForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const data = loadForkliftData();
+    const forklift = data.forklifts.find((item) => item.id === form.get("forkliftId"));
+    if (!forklift) {
+      return;
+    }
+
+    data.repairs.push({
+      id: createUserId(),
+      forkliftId: forklift.id,
+      forkliftCode: forklift.code,
+      plant: forklift.plant,
+      provider: "Hovsep",
+      date: form.get("date"),
+      cause: form.get("cause"),
+      description: form.get("description"),
+      estimatedCost: parseSheetNumber(form.get("estimatedCost")),
+      authorizationStatus: form.get("authorizationStatus"),
+      authorizedBy: form.get("authorizedBy"),
+      authorizedDate: form.get("authorizationStatus") === "authorized" ? todayIso() : "",
+    });
+    saveForkliftData(data);
+    render();
+  });
+
+  document.querySelector("#forkliftCheckOutForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const data = loadForkliftData();
+    const forklift = data.forklifts.find((item) => item.id === form.get("forkliftId"));
+    if (!forklift) {
+      return;
+    }
+
+    forklift.endDate = form.get("endDate");
+    forklift.status = "closed";
+    forklift.checkOut = {
+      date: form.get("endDate"),
+      responsible: form.get("responsible"),
+      comments: form.get("comments"),
+      files: getFileNames(formElement.elements.files.files),
+    };
+    saveForkliftData(data);
+    render();
+  });
+
+  document.querySelector("#downloadRentalReport").addEventListener("click", () => {
+    const month = document.querySelector("#forkliftReportForm [name='month']").value || todayIso().slice(0, 7);
+    downloadForkliftRentalReport(month);
+  });
+
+  document.querySelector("#downloadRepairReport").addEventListener("click", () => {
+    const month = document.querySelector("#forkliftReportForm [name='month']").value || todayIso().slice(0, 7);
+    downloadForkliftRepairReport(month);
+  });
+}
+
+function loadForkliftData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SYNGENTA_FORKLIFT_STORAGE_KEY) || "{}");
+    return {
+      forklifts: Array.isArray(saved.forklifts) ? saved.forklifts : [],
+      repairs: Array.isArray(saved.repairs) ? saved.repairs : [],
+    };
+  } catch (error) {
+    return { forklifts: [], repairs: [] };
+  }
+}
+
+function saveForkliftData(data) {
+  localStorage.setItem(SYNGENTA_FORKLIFT_STORAGE_KEY, JSON.stringify(data));
+}
+
+function getPlantName(plantId) {
+  return SYNGENTA_PLANTS.find((plant) => plant.id === plantId)?.name || plantId || "-";
+}
+
+function getFileNames(fileList) {
+  return Array.from(fileList || []).map((file) => file.name);
+}
+
+function formatFileList(files = []) {
+  if (!files.length) {
+    return "-";
+  }
+
+  return `${formatNumber(files.length)} archivo${files.length === 1 ? "" : "s"}: ${files.join(", ")}`;
+}
+
+function buildForkliftRentalReport(forklifts, month) {
+  const byPlant = SYNGENTA_PLANTS.map((plant) => ({ plant: plant.name, amount: 0, rows: [] }));
+  const monthStart = new Date(`${month}-01T00:00:00`);
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const daysInMonth = monthEnd.getDate();
+
+  forklifts.forEach((forklift) => {
+    const activeStart = new Date(`${forklift.startDate}T00:00:00`);
+    const activeEnd = forklift.endDate ? new Date(`${forklift.endDate}T00:00:00`) : monthEnd;
+    const from = activeStart > monthStart ? activeStart : monthStart;
+    const to = activeEnd < monthEnd ? activeEnd : monthEnd;
+    if (to < monthStart || from > monthEnd || to < from) {
+      return;
+    }
+
+    const billableDays = Math.floor((to - from) / 86400000) + 1;
+    const amount = (Number(forklift.monthlyRate) || 0) * (billableDays / daysInMonth);
+    const plantRow = byPlant.find((row) => row.plant === getPlantName(forklift.plant));
+    if (plantRow) {
+      plantRow.amount += amount;
+      plantRow.rows.push({ forklift, billableDays, amount });
+    }
+  });
+
+  return {
+    total: byPlant.reduce((total, row) => total + row.amount, 0),
+    byPlant,
+  };
+}
+
+function buildForkliftRepairReport(repairs, month) {
+  const rows = repairs.filter((repair) => repair.date?.slice(0, 7) === month);
+  return {
+    total: rows.reduce((total, repair) => total + (Number(repair.estimatedCost) || 0), 0),
+    rows,
+  };
+}
+
+function downloadForkliftRentalReport(month) {
+  const data = loadForkliftData();
+  const report = buildForkliftRentalReport(data.forklifts, month);
+  const rows = [["Planta", "Codigo", "Proveedor", "Desde", "Hasta", "Dias facturables", "Alquiler mensual", "Importe estimado"]];
+  report.byPlant.forEach((plant) => {
+    plant.rows.forEach((row) => {
+      rows.push([
+        plant.plant,
+        row.forklift.code,
+        "Hovsep",
+        row.forklift.startDate,
+        row.forklift.endDate || "Activo",
+        row.billableDays,
+        row.forklift.monthlyRate,
+        Math.round(row.amount),
+      ]);
+    });
+  });
+  downloadCsv(`syngenta-alquileres-${month}.csv`, rows);
+}
+
+function downloadForkliftRepairReport(month) {
+  const data = loadForkliftData();
+  const report = buildForkliftRepairReport(data.repairs, month);
+  const rows = [["Planta", "Codigo", "Fecha", "Causa", "Descripcion", "Costo estimado", "Estado autorizacion", "Autorizado por"]];
+  report.rows.forEach((repair) => {
+    rows.push([
+      getPlantName(repair.plant),
+      repair.forkliftCode,
+      repair.date,
+      repair.cause,
+      repair.description,
+      repair.estimatedCost,
+      repair.authorizationStatus,
+      repair.authorizedBy || "",
+    ]);
+  });
+  downloadCsv(`syngenta-reparaciones-${month}.csv`, rows);
+}
+
+function downloadCsv(filename, rows) {
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDisplayMonth(month) {
+  if (!month) {
+    return "-";
+  }
+
+  const [year, monthNumber] = month.split("-");
+  return `${monthNumber}/${year}`;
 }
 
 function renderSteckDashboard(client) {

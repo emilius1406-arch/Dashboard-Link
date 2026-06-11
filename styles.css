@@ -35,7 +35,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -163,18 +164,30 @@ button {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
-  min-height: 46px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0 12px;
   color: var(--ink);
   background: #fff;
 }
 
+.field input,
+.field select {
+  min-height: 46px;
+  padding: 0 12px;
+}
+
+.field textarea {
+  min-height: 92px;
+  padding: 12px;
+  resize: vertical;
+}
+
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: 3px solid rgba(191, 23, 38, .16);
   border-color: var(--brand);
 }
@@ -575,6 +588,174 @@ button {
 
 .syngenta-module-card {
   border-top: 5px solid #2f3f8f;
+}
+
+.forklift-shell {
+  gap: 16px;
+}
+
+.forklift-kpis,
+.forklift-report-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.forklift-kpis > div,
+.forklift-report-grid > div {
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  align-content: center;
+  padding: 14px;
+  background: #f8faf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.forklift-kpis span,
+.forklift-report-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.forklift-kpis strong,
+.forklift-report-grid strong {
+  color: #2f3f8f;
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1;
+}
+
+.forklift-layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.forklift-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.forklift-panel.wide {
+  grid-column: 1 / -1;
+}
+
+.forklift-panel h3 {
+  margin: 0;
+}
+
+.forklift-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.forklift-panel-head span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.forklift-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.forklift-form .field {
+  margin-bottom: 0;
+}
+
+.forklift-form .full,
+.forklift-form button {
+  grid-column: 1 / -1;
+}
+
+.forklift-list {
+  display: grid;
+  gap: 10px;
+}
+
+.forklift-row {
+  padding: 12px;
+  background: #f9f8f5;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.forklift-row summary {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) repeat(3, minmax(0, .8fr));
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.forklift-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.forklift-row summary > div,
+.forklift-detail-grid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.forklift-row span,
+.forklift-detail-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.forklift-row strong,
+.forklift-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.forklift-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.repair-history {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.repair-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.forklift-report-form {
+  display: grid;
+  grid-template-columns: minmax(160px, .7fr) repeat(2, minmax(160px, .5fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.forklift-report-form .field {
+  margin-bottom: 0;
 }
 
 .ops-card {
@@ -1438,6 +1619,13 @@ button {
   .declared-summary,
   .route-row summary,
   .route-detail,
+  .forklift-kpis,
+  .forklift-layout,
+  .forklift-form,
+  .forklift-row summary,
+  .forklift-detail-grid,
+  .forklift-report-form,
+  .forklift-report-grid,
   .heatmap-filters,
   .heatmap-grid,
   .result-card dl,
