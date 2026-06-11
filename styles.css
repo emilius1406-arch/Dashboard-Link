@@ -758,6 +758,143 @@ button {
   margin-bottom: 0;
 }
 
+.scoring-shell {
+  gap: 16px;
+}
+
+.scoring-layout {
+  display: grid;
+  grid-template-columns: .82fr 1.18fr;
+  gap: 12px;
+}
+
+.driver-score-list,
+.incident-list {
+  display: grid;
+  gap: 10px;
+}
+
+.driver-score-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(120px, .7fr)) minmax(180px, .9fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background: #f8faf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.driver-score-row.risk {
+  background: #fff7f1;
+  border-color: rgba(191, 23, 38, .28);
+}
+
+.driver-score-row > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.driver-score-row span,
+.score-meter span,
+.incident-row span,
+.incident-detail span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.driver-score-row strong,
+.incident-row strong,
+.incident-detail strong {
+  overflow-wrap: anywhere;
+}
+
+.score-meter {
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.score-meter strong {
+  color: #2f3f8f;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.score-meter::after,
+.score-meter i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 7px;
+  border-radius: 999px;
+  content: "";
+}
+
+.score-meter::after {
+  background: #e5e1d9;
+}
+
+.score-meter i {
+  right: auto;
+  background: linear-gradient(90deg, #bf1726, #e3aa31, #16803f);
+  z-index: 1;
+}
+
+.incident-row {
+  padding: 12px;
+  background: #f9f8f5;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.incident-row summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(120px, .55fr)) max-content;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.incident-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.incident-row summary > div,
+.incident-detail > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.incident-detail {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, .7fr) minmax(280px, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.incident-action-form {
+  display: grid;
+  gap: 10px;
+}
+
+.incident-action-form .field {
+  margin-bottom: 0;
+}
+
+.status-badge.attention {
+  color: #bf1726;
+  background: rgba(191, 23, 38, .12);
+  border: 1px solid rgba(191, 23, 38, .28);
+  box-shadow: 0 8px 18px rgba(191, 23, 38, .1);
+}
+
 .ops-card {
   display: grid;
   gap: 18px;
@@ -1626,6 +1763,10 @@ button {
   .forklift-detail-grid,
   .forklift-report-form,
   .forklift-report-grid,
+  .scoring-layout,
+  .driver-score-row,
+  .incident-row summary,
+  .incident-detail,
   .heatmap-filters,
   .heatmap-grid,
   .result-card dl,

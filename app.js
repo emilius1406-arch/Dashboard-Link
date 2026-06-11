@@ -63,6 +63,7 @@ const REMITO_PDF_INDEX_URL = "https://script.google.com/macros/s/AKfycbz7xg8fZnt
 const REMITO_PDF_FALLBACK_URL = "data/remitos-pdfs.json";
 const UNIT_QUANTITY_INDEX_URL = "data/unidades-remito.json";
 const SYNGENTA_FORKLIFT_STORAGE_KEY = "syngentaForkliftManagement";
+const SYNGENTA_SCORING_STORAGE_KEY = "syngentaForkliftScoring";
 const SYNGENTA_PLANTS = [
   { id: "araucaria", name: "La Araucaria", manager: "Matias Cordoba" },
   { id: "vt1", name: "VT1", manager: "Responsable VT1" },
@@ -705,11 +706,13 @@ function renderSyngentaDashboard(client) {
   bindTopbar();
   bindSyngentaModuleNav();
   bindForkliftManagement();
+  bindScoringManagement();
 }
 
 function renderSyngentaModuleNav() {
   const modules = [
     ["forklifts", "Gestion de Autoelevadores"],
+    ["scoring", "Sistema de Scoring"],
     ["daily", "Indicadores Diarios"],
     ["staff", "Gestion de Personal"],
   ];
@@ -737,6 +740,10 @@ function renderSyngentaModuleContent() {
     return renderForkliftManagement();
   }
 
+  if (activeSyngentaModule === "scoring") {
+    return renderScoringManagement();
+  }
+
   const content = {
     daily: {
       title: "INDICADORES DIARIOS",
@@ -760,6 +767,208 @@ function renderSyngentaModuleContent() {
           <span>${content.body}</span>
         </div>
       </article>
+    </section>
+  `;
+}
+
+function renderScoringManagement() {
+  const data = loadScoringData();
+  const incidents = [...data.incidents].sort((a, b) => String(b.occurrenceDate).localeCompare(String(a.occurrenceDate)));
+  const driversWithScore = data.drivers
+    .map((driver) => ({ ...driver, score: calculateDriverScore(driver.id, data.incidents) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const activeIncidents = incidents.filter((incident) => isIncidentPenaltyActive(incident));
+  const criticalDrivers = driversWithScore.filter((driver) => driver.score < 80);
+  const pendingActions = incidents.filter((incident) => !String(incident.actionPlan || "").trim());
+
+  return `
+    <section class="ops-section">
+      <article class="ops-card syngenta-module-card scoring-shell">
+        <div class="search-head">
+          <span class="kpi-label">SISTEMA DE SCORING</span>
+          <p class="muted">Evaluacion de conductores de autoelevadores por incidentes, llamados de atencion y planes de accion.</p>
+        </div>
+
+        <div class="forklift-kpis scoring-kpis">
+          <div><span>Conductores</span><strong>${formatNumber(data.drivers.length)}</strong></div>
+          <div><span>Incidentes activos</span><strong>${formatNumber(activeIncidents.length)}</strong></div>
+          <div><span>Conductores bajo 80</span><strong>${formatNumber(criticalDrivers.length)}</strong></div>
+          <div><span>Planes pendientes</span><strong>${formatNumber(pendingActions.length)}</strong></div>
+        </div>
+
+        <div class="scoring-layout">
+          <section class="forklift-panel">
+            <h3>Alta de conductor</h3>
+            <form id="driverForm" class="forklift-form">
+              <label class="field full">
+                <span>Nombre del conductor</span>
+                <input name="name" placeholder="Ej: Juan Perez" required>
+              </label>
+              <label class="field">
+                <span>Planta</span>
+                <select name="plant" required>${renderPlantOptions()}</select>
+              </label>
+              <label class="field">
+                <span>Legajo / referencia</span>
+                <input name="employeeId" placeholder="Opcional">
+              </label>
+              <button class="primary-btn" type="submit">Agregar conductor</button>
+            </form>
+          </section>
+
+          <section class="forklift-panel">
+            <h3>Denunciar incidente</h3>
+            <form id="incidentForm" class="forklift-form">
+              <label class="field">
+                <span>Conductor</span>
+                <select name="driverId" required>${renderDriverOptions(data.drivers)}</select>
+              </label>
+              <label class="field">
+                <span>Planta</span>
+                <select name="plant" required>${renderPlantOptions()}</select>
+              </label>
+              <label class="field">
+                <span>Fecha de ocurrencia</span>
+                <input name="occurrenceDate" type="date" value="${todayIso()}" required>
+              </label>
+              <label class="field">
+                <span>Puntos a descontar</span>
+                <input name="points" inputmode="numeric" value="10" required>
+              </label>
+              <label class="field">
+                <span>Recupera en dias</span>
+                <input name="recoveryDays" inputmode="numeric" value="90" required>
+              </label>
+              <label class="field">
+                <span>Denuncia usuario</span>
+                <input value="${escapeHtml(session?.name || session?.username || "-")}" disabled>
+              </label>
+              <label class="field full">
+                <span>Maniobra o accion denunciada</span>
+                <textarea name="description" rows="3" placeholder="Describir maniobra, llamado de atencion o condicion insegura." required></textarea>
+              </label>
+              <label class="field full">
+                <span>Fotos / videos del incidente</span>
+                <input name="files" type="file" accept="image/*,video/*" multiple>
+              </label>
+              <label class="field full">
+                <span>Plan de accion inicial</span>
+                <textarea name="actionPlan" rows="2" placeholder="Capacitacion, charla, suspension operativa, seguimiento, etc."></textarea>
+              </label>
+              <button class="primary-btn" type="submit">Registrar incidente</button>
+            </form>
+          </section>
+        </div>
+
+        ${renderDriverScoreTable(driversWithScore, data.incidents)}
+        ${renderIncidentHistory(incidents, data.drivers)}
+      </article>
+    </section>
+  `;
+}
+
+function renderDriverOptions(drivers) {
+  if (!drivers.length) {
+    return `<option value="">Cargar conductor primero</option>`;
+  }
+
+  return drivers
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((driver) => `<option value="${driver.id}">${escapeHtml(driver.name)} - ${getPlantName(driver.plant)}</option>`)
+    .join("");
+}
+
+function renderDriverScoreTable(drivers, incidents) {
+  return `
+    <section class="forklift-panel wide">
+      <div class="forklift-panel-head">
+        <h3>Tabla de conductores</h3>
+        <span>Puntaje inicial 100</span>
+      </div>
+      ${drivers.length ? `
+        <div class="driver-score-list">
+          ${drivers.map((driver) => {
+            const driverIncidents = incidents.filter((incident) => incident.driverId === driver.id);
+            const activePenalty = driverIncidents
+              .filter((incident) => isIncidentPenaltyActive(incident))
+              .reduce((total, incident) => total + (Number(incident.points) || 0), 0);
+            return `
+              <div class="driver-score-row ${driver.score < 80 ? "risk" : ""}">
+                <div>
+                  <strong>${escapeHtml(driver.name)}</strong>
+                  <span>${getPlantName(driver.plant)}${driver.employeeId ? ` - Legajo ${escapeHtml(driver.employeeId)}` : ""}</span>
+                </div>
+                <div><span>Incidentes historicos</span><strong>${formatNumber(driverIncidents.length)}</strong></div>
+                <div><span>Descuento activo</span><strong>${formatNumber(activePenalty)} pts</strong></div>
+                <div class="score-meter">
+                  <span>Scoring</span>
+                  <strong>${formatNumber(driver.score)}</strong>
+                  <i style="width:${Math.max(0, Math.min(100, driver.score))}%"></i>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <strong>Sin conductores cargados</strong>
+          <span>Agrega el primer conductor para comenzar el control de scoring.</span>
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function renderIncidentHistory(incidents, drivers) {
+  return `
+    <section class="forklift-panel wide">
+      <div class="forklift-panel-head">
+        <h3>Incidentes por fecha</h3>
+        <span>${formatNumber(incidents.length)} registros</span>
+      </div>
+      ${incidents.length ? `
+        <div class="incident-list">
+          ${incidents.map((incident) => {
+            const driver = drivers.find((item) => item.id === incident.driverId);
+            const penaltyActive = isIncidentPenaltyActive(incident);
+            return `
+              <details class="incident-row" open>
+                <summary>
+                  <div>
+                    <strong>${formatDisplayDate(incident.occurrenceDate)} - ${escapeHtml(driver?.name || "Conductor no encontrado")}</strong>
+                    <span>${getPlantName(incident.plant)} - denunciado por ${escapeHtml(incident.reportedByName || "-")}</span>
+                  </div>
+                  <div><span>Descuento</span><strong>${formatNumber(incident.points)} pts</strong></div>
+                  <div><span>Recuperacion</span><strong>${formatDisplayDate(getIncidentRecoveryDate(incident))}</strong></div>
+                  <span class="status-badge ${penaltyActive ? "attention" : "delivered"}">${penaltyActive ? "Activo" : "Recuperado"}</span>
+                </summary>
+                <div class="incident-detail">
+                  <div>
+                    <span>Maniobra / accion denunciada</span>
+                    <strong>${escapeHtml(incident.description || "-")}</strong>
+                  </div>
+                  <div>
+                    <span>Archivos</span>
+                    <strong>${formatFileList(incident.files)}</strong>
+                  </div>
+                  <form class="incident-action-form" data-incident-id="${incident.id}">
+                    <label class="field">
+                      <span>Plan de accion / seguimiento</span>
+                      <textarea name="actionPlan" rows="3" placeholder="Escribir plan de accion y seguimiento.">${escapeHtml(incident.actionPlan || "")}</textarea>
+                    </label>
+                    <button class="secondary-btn" type="submit">Guardar plan de accion</button>
+                  </form>
+                </div>
+              </details>
+            `;
+          }).join("")}
+        </div>
+      ` : `
+        <div class="empty-state">
+          <strong>Sin incidentes registrados</strong>
+          <span>Cuando se denuncie un incidente quedara aca con su plan de accion e historial.</span>
+        </div>
+      `}
     </section>
   `;
 }
@@ -1093,6 +1302,79 @@ function bindForkliftManagement() {
   });
 }
 
+function bindScoringManagement() {
+  const driverForm = document.querySelector("#driverForm");
+  if (!driverForm) {
+    return;
+  }
+
+  driverForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(driverForm);
+    const data = loadScoringData();
+    data.drivers.push({
+      id: createUserId(),
+      name: String(form.get("name") || "").trim(),
+      plant: form.get("plant"),
+      employeeId: String(form.get("employeeId") || "").trim(),
+      baseScore: 100,
+      status: "active",
+      createdAt: todayIso(),
+    });
+    saveScoringData(data);
+    render();
+  });
+
+  const incidentForm = document.querySelector("#incidentForm");
+  incidentForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const data = loadScoringData();
+    const driver = data.drivers.find((item) => item.id === form.get("driverId"));
+    if (!driver) {
+      return;
+    }
+
+    data.incidents.push({
+      id: createUserId(),
+      driverId: driver.id,
+      driverName: driver.name,
+      plant: form.get("plant"),
+      occurrenceDate: form.get("occurrenceDate"),
+      points: Math.max(0, parseSheetNumber(form.get("points"))),
+      recoveryDays: Math.max(1, parseSheetNumber(form.get("recoveryDays")) || 90),
+      description: String(form.get("description") || "").trim(),
+      files: getFileNames(formElement.elements.files.files),
+      actionPlan: String(form.get("actionPlan") || "").trim(),
+      reportedById: session?.id || "",
+      reportedByUser: session?.username || "",
+      reportedByName: session?.name || session?.username || "",
+      reportedAt: todayIso(),
+    });
+    saveScoringData(data);
+    render();
+  });
+
+  document.querySelectorAll(".incident-action-form").forEach((formElement) => {
+    formElement.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const form = new FormData(formElement);
+      const data = loadScoringData();
+      const incident = data.incidents.find((item) => item.id === formElement.dataset.incidentId);
+      if (!incident) {
+        return;
+      }
+
+      incident.actionPlan = String(form.get("actionPlan") || "").trim();
+      incident.actionUpdatedBy = session?.name || session?.username || "";
+      incident.actionUpdatedAt = todayIso();
+      saveScoringData(data);
+      render();
+    });
+  });
+}
+
 function loadForkliftData() {
   try {
     const saved = JSON.parse(localStorage.getItem(SYNGENTA_FORKLIFT_STORAGE_KEY) || "{}");
@@ -1107,6 +1389,55 @@ function loadForkliftData() {
 
 function saveForkliftData(data) {
   localStorage.setItem(SYNGENTA_FORKLIFT_STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadScoringData() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SYNGENTA_SCORING_STORAGE_KEY) || "{}");
+    return {
+      drivers: Array.isArray(saved.drivers) ? saved.drivers : [],
+      incidents: Array.isArray(saved.incidents) ? saved.incidents : [],
+    };
+  } catch (error) {
+    return { drivers: [], incidents: [] };
+  }
+}
+
+function saveScoringData(data) {
+  localStorage.setItem(SYNGENTA_SCORING_STORAGE_KEY, JSON.stringify(data));
+}
+
+function calculateDriverScore(driverId, incidents) {
+  const activePenalty = incidents
+    .filter((incident) => incident.driverId === driverId && isIncidentPenaltyActive(incident))
+    .reduce((total, incident) => total + (Number(incident.points) || 0), 0);
+  return Math.max(0, 100 - activePenalty);
+}
+
+function isIncidentPenaltyActive(incident) {
+  const recoveryDate = getIncidentRecoveryDate(incident);
+  if (!recoveryDate) {
+    return false;
+  }
+
+  return recoveryDate >= todayIso();
+}
+
+function getIncidentRecoveryDate(incident) {
+  if (!incident?.occurrenceDate) {
+    return "";
+  }
+
+  const date = new Date(`${incident.occurrenceDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  date.setDate(date.getDate() + (Number(incident.recoveryDays) || 90));
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getPlantName(plantId) {
