@@ -1589,6 +1589,7 @@ function renderSteckDashboard(client) {
   const totalPallets = sumRows(totalRows, "palletsIn");
   const previousRows = steckIndicators.filter((row) => row.date.slice(0, 7) === previousMonthKey(referenceDate));
   const previousMonthPositions = averageRows(previousRows, "previousMonthPositions");
+  const previousMonthEmptyPositions = averageRows(previousRows, "previousMonthEmptyPositions");
   const periodLabel = isRangeView ? "EN EL RANGO" : referenceDate === dateIso ? "HOY" : `DEL ${formatDisplayDate(referenceDate)}`;
   const detailPeriodLabel = isRangeView ? "en el rango" : referenceDate === dateIso ? "hoy" : `del ${formatDisplayDate(referenceDate)}`;
   const accumulatedLabel = isRangeView ? "acumulados en el rango" : "acumulados en el mes";
@@ -1726,9 +1727,16 @@ function renderSteckDashboard(client) {
           <span class="kpi-label">TOTAL POSICIONES MES ANTERIOR</span>
           <div class="positions-content">
             <img class="positions-photo" src="assets/posiciones-mes-anterior.png" alt="Posiciones Steck mes anterior">
-            <div>
-              <strong>${formatNumber(previousMonthPositions)}</strong>
-              <span>Promedio de posiciones sobre días informados del mes anterior</span>
+            <div class="positions-metrics">
+              <div class="positions-metric">
+                <strong>${formatNumber(previousMonthPositions)}</strong>
+                <span>Posiciones llenas</span>
+                <small>Promedio sobre dias informados del mes anterior</small>
+              </div>
+              <div class="positions-metric positions-empty">
+                <strong>${formatNumber(previousMonthEmptyPositions)}</strong>
+                <span>Posiciones vac&iacute;as</span>
+              </div>
             </div>
           </div>
         </article>
@@ -2641,6 +2649,15 @@ function parseIndicatorRows(csv) {
         containersBrazil: parseSheetNumber(item["Desc. Cont. Brasil"]),
         palletsIn: parseSheetNumber(item["Pallets In"]),
         previousMonthPositions: parseSheetNumber(item["Posiciones Mes Ant."]),
+        previousMonthEmptyPositions: parseSheetNumber(getFirstSheetValue(item, [
+          "Posiciones Vacias",
+          "Posiciones Vacías",
+          "Posciones Vacias",
+          "Posciones Vacías",
+          "Posiciones Vac.",
+          "Posiciones Vacias Mes Ant.",
+          "Posiciones Vacías Mes Ant.",
+        ])),
       };
     })
     .filter((row) => row.date)
@@ -2814,6 +2831,23 @@ function rowToObject(headers, row) {
     object[header.trim()] = (row[index] || "").trim();
     return object;
   }, {});
+}
+
+function getFirstSheetValue(item, keys) {
+  const normalizedMap = Object.keys(item).reduce((map, key) => {
+    map[normalizeSheetHeader(key)] = key;
+    return map;
+  }, {});
+  const foundKey = keys.map(normalizeSheetHeader).map((key) => normalizedMap[key]).find(Boolean);
+  return foundKey ? item[foundKey] : "";
+}
+
+function normalizeSheetHeader(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function parseSheetDate(value) {
