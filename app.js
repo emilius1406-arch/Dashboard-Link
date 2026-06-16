@@ -1731,7 +1731,6 @@ function renderSteckDashboard(client) {
               <div class="positions-metric">
                 <strong>${formatNumber(previousMonthPositions)}</strong>
                 <span>Posiciones llenas</span>
-                <small>Promedio sobre dias informados del mes anterior</small>
               </div>
               <div class="positions-metric positions-empty">
                 <strong>${formatNumber(previousMonthEmptyPositions)}</strong>
@@ -2648,8 +2647,19 @@ function parseIndicatorRows(csv) {
         containersChina: parseSheetNumber(item["Desc. Cont. China"]),
         containersBrazil: parseSheetNumber(item["Desc. Cont. Brasil"]),
         palletsIn: parseSheetNumber(item["Pallets In"]),
-        previousMonthPositions: parseSheetNumber(item["Posiciones Mes Ant."]),
+        previousMonthPositions: parseSheetNumber(getFirstSheetValue(item, [
+          "Posiciones Mes Ant. llenas",
+          "Posiciones Mes Ant Llenas",
+          "Posiciones Mes Ant.",
+          "Posiciones Mes Ant",
+          "Posiciones llenas",
+          "Posiciones Llenas",
+        ])),
         previousMonthEmptyPositions: parseSheetNumber(getFirstSheetValue(item, [
+          "Posiciones Mes Ant. vacías",
+          "Posiciones Mes Ant. vacias",
+          "Posiciones Mes Ant Vacías",
+          "Posiciones Mes Ant Vacias",
           "Posiciones Vacias",
           "Posiciones Vacías",
           "Posciones Vacias",
