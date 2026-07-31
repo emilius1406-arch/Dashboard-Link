@@ -26,16 +26,17 @@ const clients = [
     tasks: ["Configurar indicadores", "Validar maestro operativo", "Definir tableros Syngenta"],
   },
   {
-    id: "andes",
-    name: "Andes Salud",
-    initials: "AS",
-    color: "#6b5b2a",
-    sites: "5 sedes",
-    active: 29,
-    pending: 4,
-    sla: "98%",
-    alerts: "Operacion estable",
-    tasks: ["Guardias activas", "Insumos sensibles", "Mantenimiento preventivo"],
+    id: "loval",
+    name: "Loval",
+    accessColumns: ["Loval", "Andes Salud"],
+    initials: "LOV",
+    color: "#f15a24",
+    sites: "Operacion Pacheco",
+    active: 4,
+    pending: 1,
+    sla: "99%",
+    alerts: "Operacion Loval activa",
+    tasks: ["Cuenta corriente de pallets", "Control de ingresos", "Devoluciones pendientes"],
   },
   {
     id: "puerto",
@@ -114,7 +115,7 @@ const fallbackUsers = [
     role: "Acceso a cartera",
     company: "Link Soluciones Logisticas",
     position: "Supervisor",
-    clientIds: ["steck", "syngenta", "andes"],
+    clientIds: ["steck", "syngenta", "loval"],
     system: true,
   },
   {
@@ -320,6 +321,14 @@ function renderClientLogo(client) {
     return `
       <div class="client-logo client-logo-syngenta" aria-label="Syngenta">
         <img src="assets/logo-syngenta.png" alt="Syngenta">
+      </div>
+    `;
+  }
+
+  if (client.id === "loval") {
+    return `
+      <div class="client-logo client-logo-loval" aria-label="Loval">
+        <img src="assets/logo-loval.png" alt="Loval">
       </div>
     `;
   }
@@ -613,6 +622,11 @@ function renderDashboard(client) {
     return;
   }
 
+  if (isLovalClient(client)) {
+    renderLovalDashboard({ ...clients.find((item) => item.id === "loval"), ...client, id: "loval", name: "Loval" });
+    return;
+  }
+
   const statusClass = client.pending > 10 ? "warn" : "";
   app.innerHTML = `
     ${renderTopbar(`${session.role} - ${client.name}`)}
@@ -679,6 +693,79 @@ function renderDashboard(client) {
 
 function isSyngentaClient(client) {
   return client?.id === "syngenta" || normalizeSearchText(client?.name) === "syngenta";
+}
+
+function isLovalClient(client) {
+  const name = normalizeSearchText(client?.name);
+  return client?.id === "loval" || name === "loval" || name === "andes salud";
+}
+
+function renderLovalDashboard(client) {
+  app.innerHTML = `
+    ${renderTopbar(`${session.role} - ${client.name}`)}
+    <section class="page loval-page">
+      <div class="section-title">
+        <div class="client-head">
+          ${renderClientLogo(client)}
+          <div>
+            <h2>Loval</h2>
+            <p class="muted">${client.sites} - tablero operativo</p>
+          </div>
+        </div>
+        <div class="status-row">
+          <span class="status-pill">${client.alerts}</span>
+        </div>
+      </div>
+
+      <div class="metrics loval-metrics">
+        <article class="metric">
+          <span>Modulos activos</span>
+          <strong>${client.active}</strong>
+        </article>
+        <article class="metric">
+          <span>Pendientes operativos</span>
+          <strong>${client.pending}</strong>
+        </article>
+        <article class="metric">
+          <span>Cumplimiento SLA</span>
+          <strong>${client.sla}</strong>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="panel loval-panel">
+          <h3>Gestion de pallets</h3>
+          <div class="loval-module">
+            <div>
+              <span class="kpi-label">CUENTA CORRIENTE</span>
+              <strong>Pallets Loval</strong>
+              <p class="muted">Ingreso de remitos, bajas por rotura o pallets Euro, despachos con voucher y saldos adeudados por cliente.</p>
+            </div>
+            <a class="view-remito-btn" href="http://127.0.0.1:5173/" target="_blank" rel="noopener">Abrir cuenta de pallets</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Prioridades del dia</h3>
+          <ul class="task-list">
+            ${client.tasks.map((task, index) => `
+              <li>
+                <span>${task}</span>
+                <span class="tag">${index === 0 ? "Alta" : "Media"}</span>
+              </li>
+            `).join("")}
+          </ul>
+        </section>
+      </div>
+    </section>
+    <nav class="bottom-nav" aria-label="Navegacion movil">
+      <button class="active" type="button">Inicio</button>
+      <button type="button">Alertas</button>
+      <button type="button">Perfil</button>
+    </nav>
+  `;
+
+  bindTopbar();
 }
 
 function renderSyngentaDashboard(client) {

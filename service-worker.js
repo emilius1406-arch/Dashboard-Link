@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-operativo-v67";
+const CACHE_NAME = "dashboard-operativo-v68";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const APP_SHELL = [
   "./assets/logo-link-transparent.png",
   "./assets/link-login-bg.jpg",
   "./assets/logo-steck.png",
+  "./assets/logo-loval.png",
   "./assets/utilitario-link.png",
   "./assets/chasis-link.png",
   "./assets/container-china-steck.png",
